@@ -126,26 +126,59 @@ async def propose_questions(
     history: list[dict],
     runner_up_code: str | None = None,
     champion_question: dict | None = None,
+    generation_number: int | None = None,
 ) -> list[Question]:
     """Return 4 distinct improvement questions across the locked categories.
 
-    Deterministic on this experimental branch: no LLM call. The pool
-    rotates by ``len(history) + 1`` so different generations exercise
-    different angles. ``champion_code``, ``runner_up_code``, and
-    ``champion_question`` are accepted (preserving the API) but ignored.
+    Deterministic on this experimental branch — no LLM. Two layers of
+    selection logic, both performance-aware:
 
-    Returns:
-        Length-4 list of ``Question`` records, one per category in
-        ``CATEGORIES_USED``.
+    Within each category, advance the rotation pointer based on how
+    many times that category has already been *tried* across previous
+    gens (i.e. ``history`` length, or ``generation_number`` if passed).
+    So if a category's pool has 5 entries, gens 1-5 hit each one once,
+    gen 6 cycles back to entry 0 with one variation tried again.
+
+    But also: bias the pool selection toward what's been *winning*. If
+    a prior gen's champion came from category X, the next gen's pool
+    pointer for X advances *one extra step* — the strategist tries the
+    next most-related variant in that category to see if doubling down
+    on a winning theme produces another champion. This is the closest
+    deterministic analogue to "build on the best models" without an
+    LLM looking at the source.
+
+    Args:
+        champion_code, runner_up_code: accepted but unused (kept for
+            API compatibility with the LLM-driven version).
+        history: list of prior gen records. Each record is a dict with
+            optional ``generation`` (int) and ``champion_category``
+            (str — the category whose candidate became this gen's
+            champion, or None on retention). The strategist uses this
+            for performance-aware bias.
+        champion_question: ignored under deterministic mode.
+        generation_number: explicit gen number override. If passed,
+            takes precedence over ``len(history)+1`` for rotation.
+            Lets the orchestrator be authoritative about gen number
+            even if it builds an empty history.
     """
-    # Generation number determines which question we pick from each
-    # pool. ``len(history)+1`` gives us the gen we're currently
-    # building for (history is the list of *prior* gen summaries).
-    gen_number = max(1, len(history) + 1)
+    if generation_number is None:
+        generation_number = max(1, len(history) + 1)
+
+    # Performance-aware bias: count how often each category has produced
+    # a champion in past gens. Each champion-promotion pushes that
+    # category's rotation pointer forward by 1 — so winning categories
+    # get re-explored with new variants faster than losing ones.
+    champion_wins_per_category: dict[str, int] = {c: 0 for c in CATEGORIES_USED}
+    for h in history:
+        cat = h.get("champion_category")
+        if cat in champion_wins_per_category:
+            champion_wins_per_category[cat] += 1
 
     out: list[Question] = []
     for i, cat in enumerate(CATEGORIES_USED):
         pool = QUESTION_POOLS[cat]
-        text = pool[(gen_number - 1) % len(pool)]
+        # Base rotation by gen number + extra advance for winning cats.
+        rotation = (generation_number - 1) + champion_wins_per_category[cat]
+        text = pool[rotation % len(pool)]
         out.append(Question(index=i, category=cat, text=text))
     return out

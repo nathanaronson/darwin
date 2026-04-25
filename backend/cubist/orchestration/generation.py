@@ -83,8 +83,34 @@ async def run_generation(
     runner_up_src = _read_source(runner_up) if runner_up else None
     runner_up_name = runner_up.name if runner_up else None
 
+    # Build the strategist's history from prior generations so the
+    # deterministic rotation actually advances and the performance-bias
+    # logic has data. Each entry: ``champion_category`` is the category
+    # whose candidate became this gen's champion (None on retention),
+    # so the strategist can bias toward winning categories. Reading
+    # GenerationRow.champion_after's name prefix recovers the category
+    # from the format ``gen{N}-{cat}-{hash}``; baseline retentions
+    # don't match and yield None.
+    import re as _re_local
+    _CAT_RE = _re_local.compile(r"^gen\d+-([a-z]+)-")
+    with get_session() as s:
+        from sqlmodel import select as _select
+        prior_rows = s.exec(
+            _select(GenerationRow).order_by(GenerationRow.number)
+        ).all()
+        history = []
+        for r in prior_rows:
+            m = _CAT_RE.match(r.champion_after)
+            history.append({
+                "generation": r.number,
+                "champion_category": m.group(1) if m else None,
+            })
+
     questions = await propose_questions(
-        primary_src, [], runner_up_code=runner_up_src
+        primary_src,
+        history,
+        runner_up_code=runner_up_src,
+        generation_number=generation_number,
     )
     for q in questions:
         await bus.emit(
