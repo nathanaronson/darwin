@@ -1,0 +1,93 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Cache uv environment
+        uses: actions/cache@v4
+        with:
+          path: backend/.venv
+          key: ${{ runner.os }}-uv-venv-${{ hashFiles('backend/uv.lock', 'backend/pyproject.toml') }}
+
+      - name: Sync dependencies
+        run: uv sync --extra dev
+
+      - name: Ruff check
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Pytest
+        run: uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+  docs:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Sync backend (needed for darwin.* symbol resolution)
+        working-directory: backend
+        run: uv sync --extra dev
+
+      - name: Verify documentation references
+        run: cd backend && uv run python ../scripts/check_docs.py
