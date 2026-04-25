@@ -1,0 +1,61 @@
+% fig-build-parallelism.tex
+% Build-time parallelism: 5 engineers + 5 agents on 5 branches against
+% frozen contracts. Gantt-style timeline with merge points.
+\begin{tikzpicture}[
+    font=\small\sffamily,
+    bar/.style={draw=black!50, rounded corners=2pt, minimum height=5mm, inner sep=2pt},
+    a/.style={bar, fill=blue!18},
+    b/.style={bar, fill=orange!22},
+    c/.style={bar, fill=green!18},
+    d/.style={bar, fill=purple!18},
+    e/.style={bar, fill=red!18},
+    freeze/.style={draw=black!70, very thick, dashed},
+    merge/.style={draw=black!70, line width=0.4pt},
+    tick/.style={font=\footnotesize, anchor=north},
+]
+
+\def\xscale{0.5}
+
+% Hour grid
+\foreach \h in {0,4,8,12,16,20,24} {
+    \draw[gray!50] (\h*\xscale, -1.2) -- (\h*\xscale, 5.6);
+    \node[tick] at (\h*\xscale, -1.2) {\h h};
+}
+
+% Hour-0 contract freeze
+\draw[freeze] (1*\xscale, -1.1) -- (1*\xscale, 5.7)
+    node[above, font=\footnotesize\bfseries] {contracts frozen};
+
+% Workstream lanes
+\node[anchor=east] at (-0.2, 5.0) {\bfseries Person A};
+\node[a, anchor=west, minimum width={9*\xscale*1cm}]  at (1*\xscale, 5.0) {engine core + baseline};
+
+\node[anchor=east] at (-0.2, 4.1) {\bfseries Person B};
+\node[b, anchor=west, minimum width={11*\xscale*1cm}] at (1*\xscale, 4.1) {tournament + referee + Elo};
+
+\node[anchor=east] at (-0.2, 3.2) {\bfseries Person C};
+\node[c, anchor=west, minimum width={11*\xscale*1cm}] at (1*\xscale, 3.2) {strategist + builder agents};
+
+\node[anchor=east] at (-0.2, 2.3) {\bfseries Person D};
+\node[d, anchor=west, minimum width={16*\xscale*1cm}] at (1*\xscale, 2.3) {dashboard (mocks $\to$ live)};
+
+\node[anchor=east] at (-0.2, 1.4) {\bfseries Person E};
+\node[e, anchor=west, minimum width={17*\xscale*1cm}] at (1*\xscale, 1.4) {API + WS bus + orchestration};
+
+% Merge axis
+\draw[merge] (1*\xscale, 0.7) -- (24*\xscale, 0.7);
+
+% Merge labels — staggered vertically so 13h/14h labels don't collide
+\foreach \xh/\lbl/\dy in {10/A/0, 13/B/0, 14/C/-0.45, 17/E/0, 20/D/0} {
+    \draw[merge, -latex] (\xh*\xscale, 0.7) -- (\xh*\xscale, 0.45 + \dy);
+    \node[font=\footnotesize, anchor=north] at (\xh*\xscale, 0.45 + \dy) {merge \lbl};
+}
+
+% Bottom caption — width-constrained so it fits on the page
+\node[font=\footnotesize\itshape, anchor=north west, align=left,
+      text width={24*\xscale*1cm}]
+    at (0, -1.7)
+    {Each lane is one engineer driving one AI coding agent on one feat/* branch.\\
+     Merge order is fixed by inter-plan dependencies.};
+
+\end{tikzpicture}

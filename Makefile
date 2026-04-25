@@ -8,6 +8,7 @@ SHELL := /bin/bash
         dev backend frontend \
         seed run replay smoke eval \
         test lint format check \
+        paper \
         clean clean-db reset
 
 help: ## Show this help
@@ -67,6 +68,11 @@ format: ## Ruff format in-place
 	cd backend && uv run ruff format .
 
 check: lint test ## Lint + tests (pre-PR gate)
+
+# ---- paper ----
+
+paper: ## Build docs/workflow.pdf via latexmk
+	cd docs && latexmk -pdf -interaction=nonstopmode workflow.tex && latexmk -c workflow.tex
 
 # ---- cleanup ----
 
