@@ -53,16 +53,37 @@ export default function Bracket({ events }: BracketProps) {
     (e): e is BuilderCompleted => e.type === "builder.completed" && e.ok,
   );
 
-  const engines: string[] = [
-    currentGen.champion,
-    ...builderEvents
-      .sort((a, b) => a.question_index - b.question_index)
-      .map((b) => b.engine_name),
-  ];
-
   const finishedGames = currentEvents.filter(
     (e): e is GameFinished => e.type === "game.finished",
   );
+
+  // Roster build, in priority order:
+  //   1. The current champion (always first; takes the highlighted blue row)
+  //   2. Every accepted candidate from builder.completed (in question_index order)
+  //   3. Every other engine that appeared in a game.finished event but is
+  //      neither the champion nor a fresh candidate. This is the runner-up
+  //      incumbent carried from the previous gen via top-2 lineage —
+  //      previously dropped from the roster because it isn't a builder
+  //      event for THIS gen, so its row/column never rendered even though
+  //      its games were being scored.
+  const seen = new Set<string>();
+  const engines: string[] = [];
+  const push = (name: string) => {
+    if (!seen.has(name)) {
+      seen.add(name);
+      engines.push(name);
+    }
+  };
+  push(currentGen.champion);
+  for (const b of builderEvents.sort(
+    (a, b) => a.question_index - b.question_index,
+  )) {
+    push(b.engine_name);
+  }
+  for (const g of finishedGames) {
+    push(g.white);
+    push(g.black);
+  }
 
   function pairScore(
     rowEngine: string,
