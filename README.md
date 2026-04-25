@@ -1,8 +1,10 @@
 # Darwin
 
-A self-improving chess engine that evolves its own scaffolding via agentic tournament selection.
+<p align="center">
+  <img src="docs/darwin-logo.png" alt="Darwin logo" width="220" />
+</p>
 
-> Built at the Point72 Hackathon as a 24-hour, five-engineer build.
+A self-improving chess engine that evolves its own scaffolding via agentic tournament selection.
 
 ---
 
