@@ -5,7 +5,7 @@ NOT call an LLM. Pure-code engines have no LLM dependencies at runtime,
 so it makes no sense for the strategist to consult an LLM either —
 that just spends API quota on questions we can author ahead of time.
 
-Each generation we hand the builders 4 distinct questions, one per
+Each generation we hand the builders 8 distinct questions, one per
 category in ``CATEGORIES_USED``. For variety across generations we keep
 a pool of multiple template questions per category and rotate through
 them based on the generation number — so gen 1, gen 2, gen 5 each see
@@ -22,12 +22,36 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-CATEGORIES = ["prompt", "search", "book", "evaluation", "sampling"]
+CATEGORIES = [
+    "prompt",
+    "search",
+    "book",
+    "evaluation",
+    "sampling",
+    "quiescence",
+    "timing",
+    "heuristics",
+    "endgame",
+]
 
 # Pure-code engines have no LLM-prompt component, so "prompt" is dropped
-# from the active rotation. The remaining four categories all map cleanly
-# to classical chess-engine techniques.
-CATEGORIES_USED = ["search", "evaluation", "book", "sampling"]
+# from the active rotation. The remaining eight categories all map cleanly
+# to classical chess-engine techniques: depth-based search, board
+# evaluation, opening/endgame book lookups, stochastic sampling, tactical
+# leaf-search (quiescence), clock management (timing), move-ordering
+# heuristics, and dedicated endgame play. Single-word names are required
+# because the engine-name round-trip (hyphens → underscores → hyphens)
+# garbles multi-word categories.
+CATEGORIES_USED = [
+    "search",
+    "evaluation",
+    "book",
+    "sampling",
+    "quiescence",
+    "timing",
+    "heuristics",
+    "endgame",
+]
 
 
 # Each pool holds multiple concrete improvement directions. We pick by
@@ -105,6 +129,88 @@ QUESTION_POOLS: dict[str, list[str]] = {
         "running average of its score across the search; bias future "
         "exploration toward high-mean / high-uncertainty moves "
         "(simple UCB1 formula).",
+    ],
+    "quiescence": [
+        "Add a quiescence search: at the leaves of alpha-beta, "
+        "instead of returning eval immediately, recurse on captures-"
+        "only until the position is 'quiet' (no captures available). "
+        "Eliminates horizon-effect blunders where the search ends "
+        "mid-exchange.",
+        "Add Static Exchange Evaluation (SEE) for capture filtering: "
+        "for each capture move, simulate the full sequence of "
+        "recaptures on that square and score the net material. Only "
+        "enter quiescence on captures with SEE >= 0; prune losing "
+        "captures cheaply.",
+        "Add a check extension: when the side-to-move is in check, "
+        "search the response one ply deeper without decrementing the "
+        "depth counter. Forced sequences get the focus they deserve "
+        "without burning depth on quiet branches.",
+        "Implement null-move pruning: at non-PV nodes with depth >= 3, "
+        "let the side-to-move 'pass' and search the resulting position "
+        "with depth-3. If the score still exceeds beta, prune the "
+        "node — the position is so good that any real move is at "
+        "least as strong as passing.",
+    ],
+    "timing": [
+        "Switch from a fixed time-per-move budget to soft/hard "
+        "thresholds. Aim for ~5% of remaining clock per move (soft); "
+        "allow up to ~10% (hard) when the search just produced a "
+        "fail-low at higher depth and re-search would help. Stop "
+        "thinking the moment soft is hit on a stable best move.",
+        "Add an instamove for forced positions: if there's exactly "
+        "one legal move, play it immediately and skip search entirely. "
+        "Saves seconds on forced recaptures, forced-mate-defense, and "
+        "single-legal-response check escapes.",
+        "Add a panic mode for low-clock situations: when remaining "
+        "time drops below ~10s, hard-cap search at depth 1 and pick "
+        "by material+capture-ordering only. Prevents flagging while "
+        "still playing reasonable moves.",
+        "Make search depth adaptive to position complexity: count "
+        "legal moves at the root. If < 8 legal moves, search 1 ply "
+        "deeper (likely-forced lines reward depth); if > 30 legal "
+        "moves, search 1 ply shallower (broad positions don't reward "
+        "deep tactical search).",
+    ],
+    "heuristics": [
+        "Add the killer-move heuristic for move ordering: track up to "
+        "2 quiet moves per ply that caused a beta cutoff, and try "
+        "them first (after captures) at sibling nodes. Cheap to "
+        "maintain (per-ply 2-slot array), measurable cutoff-ordering "
+        "improvement.",
+        "Add a history heuristic: maintain a 64×64 from-to integer "
+        "table that gets += depth² each time a quiet move beats beta. "
+        "Sort quiet moves by their history score during ordering. "
+        "Builds search-wide knowledge about which moves tend to cut.",
+        "Add the counter-move heuristic: when the opponent's last "
+        "move was M (from-to), remember which of our responses caused "
+        "a cutoff after M. Try that counter-move first whenever M "
+        "reappears. Tiny 64×64 table, surprisingly effective.",
+        "Combine history with a butterfly table (total tries per "
+        "from-to square) and order by relative history "
+        "(history / butterfly). Prevents popular-but-rarely-cuts "
+        "moves from dominating the ordering once their history saturates.",
+    ],
+    "endgame": [
+        "Add a pawn-endgame king-activation bonus: when the position "
+        "has zero minor and major pieces (just kings + pawns), add "
+        "+30cp per square the king is closer to e4/e5/d4/d5. The eval "
+        "should reward king centralization in pawn endings rather than "
+        "leaving it on the back rank where middlegame king-safety put it.",
+        "Implement opposition recognition for K vs K+P endings: when "
+        "the kings are on the same file or rank with one square between "
+        "them, the side NOT to move has the opposition. Add a +50cp "
+        "bonus for the side with opposition in king-pawn endings — the "
+        "engine will play to gain or keep it.",
+        "Add the rule-of-the-square for passed pawns: for each passed "
+        "pawn, compute Chebyshev distance from the lone defending king "
+        "to the pawn's promotion square. If the king is outside the "
+        "square (distance > squares-to-promotion), the pawn is unstoppable "
+        "and gets a huge bonus; otherwise a normal passed-pawn bonus.",
+        "Add a bishop-pair endgame bonus: when only bishops and pawns "
+        "remain on the board, the side with both bishops gets +50cp and "
+        "the eval prefers open positions (count pawn-blocked squares, "
+        "subtract from the bonus). Distinct from a generic mobility term "
+        "in middlegame eval.",
     ],
 }
 
