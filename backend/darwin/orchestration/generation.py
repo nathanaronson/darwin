@@ -133,14 +133,17 @@ async def run_generation(
     runner_up_src = _read_source(runner_up) if runner_up else None
     runner_up_name = runner_up.name if runner_up else None
 
-    # Build the strategist's history from prior generations so the
-    # deterministic rotation actually advances and the performance-bias
-    # logic has data. Each entry: ``champion_category`` is the category
-    # whose candidate became this gen's champion (None on retention),
-    # so the strategist can bias toward winning categories. Reading
-    # GenerationRow.champion_after's name prefix recovers the category
-    # from the format ``gen{N}-{cat}-{hash}``; baseline retentions
-    # don't match and yield None.
+    # Build the strategist's history from prior generations so the LLM
+    # can see what it already proposed and what won. Each entry:
+    #   - ``champion_category``: category whose candidate became this
+    #     gen's champion (None on retention).
+    #   - ``champion_question_text``: the strategist question that
+    #     produced the winning candidate, recovered by matching the
+    #     winning category against that gen's stored questions.
+    # Both come from GenerationRow: ``champion_after``'s name prefix
+    # gives the category (format ``gen{N}-{cat}-{hash}``), and
+    # ``strategist_questions_json`` gives the text. Baseline retentions
+    # leave both as None.
     import re as _re_local
     _CAT_RE = _re_local.compile(r"^gen\d+-([a-z]+)-")
     with get_session() as s:
@@ -151,9 +154,21 @@ async def run_generation(
         history = []
         for r in prior_rows:
             m = _CAT_RE.match(r.champion_after)
+            cat = m.group(1) if m else None
+            winning_text = None
+            if cat:
+                try:
+                    qs = json.loads(r.strategist_questions_json)
+                    for q in qs:
+                        if q.get("category") == cat:
+                            winning_text = q.get("text")
+                            break
+                except (TypeError, ValueError):
+                    pass
             history.append({
                 "generation": r.number,
-                "champion_category": m.group(1) if m else None,
+                "champion_category": cat,
+                "champion_question_text": winning_text,
             })
 
     questions = await propose_questions(
