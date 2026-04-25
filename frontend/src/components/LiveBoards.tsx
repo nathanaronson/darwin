@@ -82,7 +82,7 @@ function verboseMove(san: string, color: "white" | "black"): string {
 }
 
 export default function LiveBoards({ events }: LiveBoardsProps) {
-  const games = useMemo<GameState[]>(() => {
+  const { games, runningCount, doneCount } = useMemo(() => {
     let lastBoundary = -1;
     for (let i = 0; i < events.length; i++) {
       const t = events[i].type;
@@ -137,33 +137,51 @@ export default function LiveBoards({ events }: LiveBoardsProps) {
       }
     }
 
+    // Tally totals BEFORE the slice. The header shows aggregate
+    // counts ("47 running · 43 done · 90 total") so the user can see
+    // tournament progress even though the grid only renders 2 boards.
+    let running = 0;
+    let done = 0;
+    for (const g of map.values()) {
+      if (g.finished) done += 1;
+      else running += 1;
+    }
+
     // Sort by most-recent-activity descending so the visible boards
     // are always whatever's actively making moves. With MAX_BOARDS=2,
     // this means: as games finish or stall, fresher games slide in.
     // Within the same recency bucket, prefer in-progress games over
     // finished ones so a board that just hit checkmate doesn't hog
     // the slot while other games are still being played.
-    return Array.from(map.values())
+    const visibleGames = Array.from(map.values())
       .sort((a, b) => {
-        // Unfinished games rank above finished games.
         if (a.finished !== b.finished) return a.finished ? 1 : -1;
-        // Within the same finished/unfinished bucket, more recent
-        // activity wins.
         return b.last_event_idx - a.last_event_idx;
       })
       .slice(0, MAX_BOARDS);
+
+    return {
+      games: visibleGames,
+      runningCount: running,
+      doneCount: done,
+    };
   }, [events]);
+
+  // Header meta — counts are accurate to the full game set (not just
+  // the 2 visible boards). Concise: "47 running · 43 done" if both
+  // exist; either alone if not.
+  const totalGames = runningCount + doneCount;
+  const meta = totalGames === 0
+    ? "no games yet"
+    : runningCount > 0 && doneCount > 0
+      ? `${runningCount} running · ${doneCount} done · ${totalGames} total`
+      : runningCount > 0
+        ? `${runningCount} running`
+        : `${doneCount} done`;
 
   return (
     <div className="panel p-6">
-      <PanelHead
-        title="Live boards"
-        meta={
-          games.length === 0
-            ? "no games yet"
-            : `${games.length} game${games.length === 1 ? "" : "s"}`
-        }
-      />
+      <PanelHead title="Live boards" meta={meta} />
 
       {games.length === 0 ? (
         <EmptyPlot
