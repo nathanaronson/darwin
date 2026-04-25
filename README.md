@@ -32,9 +32,12 @@ docs/         Reference docs (proposal, architecture)
 ```bash
 cd backend
 uv sync
-cp ../.env.example ../.env  # then fill in ANTHROPIC_API_KEY
+cp ../.env.example ../.env  # then fill in GEMINI_API_KEY
 uv run uvicorn cubist.api.server:app --reload
 ```
+
+For Gemini free tier, keep the model settings on `gemini-3-flash-preview`.
+If you hit `429` rate limits, lower `LLM_MAX_CONCURRENCY` to `1`.
 
 **Frontend:**
 ```bash
