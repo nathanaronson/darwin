@@ -417,3 +417,166 @@ def test_chess_attribute_check_flags_hallucinations():
     assert reason is not None
     assert "NAVY" in reason
     assert "distance" in reason
+
+
+# ---------------------------------------------------------------------------
+# Forbidden-imports regex: edge cases that previously slipped through.
+# ---------------------------------------------------------------------------
+
+
+def test_forbidden_regex_catches_eval_with_whitespace():
+    """`eval (` (space before paren) and `eval(` must both be rejected."""
+    assert FORBIDDEN.search("x = eval ('1+1')")
+    assert FORBIDDEN.search("x = eval('1+1')")
+
+
+def test_forbidden_regex_catches_exec_call():
+    assert FORBIDDEN.search("exec(some_string)")
+
+
+def test_forbidden_regex_catches_async_subprocess():
+    assert FORBIDDEN.search("import asyncio.subprocess")
+
+
+def test_forbidden_regex_catches_pty():
+    assert FORBIDDEN.search("import pty")
+
+
+def test_forbidden_regex_does_not_catch_evaluate_function():
+    """`evaluate` is NOT `eval(` — common eval-function names must not
+    match. The original regex used a bare `eval` which produced false
+    positives on `evaluate`, `evaluation_function`, `_eval_caches`.
+    """
+    safe = [
+        "def evaluate(board): pass",
+        "def evaluation_function(): pass",
+        "from .eval_caches import lru",
+        "evaluator = MyEval()",
+    ]
+    for s in safe:
+        assert not FORBIDDEN.search(s), f"FORBIDDEN false-matched on: {s!r}"
+
+
+def test_forbidden_regex_does_not_match_socket_substring():
+    """A variable named `pocket_socket_count` should not trip the gate.
+    Word-boundary matters."""
+    assert not FORBIDDEN.search("pocket_socket_count = 0")
+    # But the bare token still matches.
+    assert FORBIDDEN.search("import socket")
+
+
+def test_required_patterns_are_non_empty():
+    """Sanity check on the gate definition itself — if someone deletes
+    REQUIRED_PATTERNS, the builder silently lets through anything."""
+    assert len(REQUIRED_PATTERNS) >= 1
+    for entry in REQUIRED_PATTERNS:
+        assert len(entry) == 3
+        name, pattern, reason = entry
+        assert isinstance(name, str) and name
+        assert hasattr(pattern, "search")
+        assert isinstance(reason, str) and reason
+
+
+def test_async_pattern_accepts_trailing_comma_in_params():
+    """Real LLM output sometimes ends the param list with a trailing
+    comma after the last annotation; the pattern must still match."""
+    pat = _async_pattern()
+    src = (
+        "async def select_move(\n"
+        "    self,\n"
+        "    board: chess.Board,\n"
+        "    time_remaining_ms: int,\n"
+        ") -> chess.Move:\n"
+        "    pass\n"
+    )
+    assert pat.search(src)
+
+
+def test_chess_attribute_check_accepts_method_chains():
+    """``chess.Board().legal_moves`` should pass — only the FIRST attr
+    after `chess.` is checked statically. Deeper accesses are runtime."""
+    from darwin.agents.builder import _check_hallucinated_chess_attrs
+
+    src = (
+        "import chess\n"
+        "for m in chess.Board().legal_moves:\n"
+        "    pass\n"
+        "x = chess.Move.from_uci('e2e4')\n"
+        "y = chess.SQUARES[0]\n"
+    )
+    assert _check_hallucinated_chess_attrs(src) is None
+
+
+def test_chess_attribute_check_handles_empty_source():
+    """A source with zero `chess.X` references must return None, not crash."""
+    from darwin.agents.builder import _check_hallucinated_chess_attrs
+
+    assert _check_hallucinated_chess_attrs("x = 1\ny = 2\n") is None
+
+
+@pytest.mark.asyncio
+async def test_validate_engine_rejects_python_syntax_error(tmp_path):
+    """Source that doesn't parse must be rejected at static phase."""
+    bad = tmp_path / "syntax_error.py"
+    bad.write_text("def select_move(:\n  pass\n")  # invalid syntax
+
+    ok, reason = await validate_engine(bad)
+    assert ok is False
+    assert reason is not None
+
+
+@pytest.mark.asyncio
+async def test_build_engine_rejects_too_short_source(tmp_path, monkeypatch, question):
+    """The submit_engine tool requires minLength=100 on the code field;
+    if the model returns something tiny anyway, our static gates still
+    reject it at REQUIRED_PATTERNS phase."""
+    monkeypatch.setattr("darwin.agents.builder.GENERATED_DIR", tmp_path / "generated")
+    monkeypatch.setattr("darwin.agents.builder.FAILED_DIR", tmp_path / "failures")
+
+    async def fake_complete(**kwargs):
+        return [_fake_tool_use_block("x = 1\n")]
+
+    monkeypatch.setattr("darwin.agents.builder.complete", fake_complete)
+
+    with pytest.raises((ValueError, RuntimeError)):
+        await build_engine(
+            champion_code="x = 1",
+            champion_name="baseline-v0",
+            generation=1,
+            question=question,
+        )
+
+
+@pytest.mark.asyncio
+async def test_build_engine_persists_failure_for_post_mortem(
+    tmp_path, monkeypatch, question
+):
+    """Every rejected source must be archived under FAILED_DIR for review."""
+    monkeypatch.setattr("darwin.agents.builder.GENERATED_DIR", tmp_path / "generated")
+    monkeypatch.setattr("darwin.agents.builder.FAILED_DIR", tmp_path / "failures")
+
+    bad_source = LEGAL_ENGINE_SOURCE + "\nimport subprocess\n"
+
+    async def fake_complete(**kwargs):
+        return [_fake_tool_use_block(bad_source)]
+
+    monkeypatch.setattr("darwin.agents.builder.complete", fake_complete)
+
+    with pytest.raises(ValueError):
+        await build_engine(
+            champion_code="x = 1",
+            champion_name="baseline-v0",
+            generation=1,
+            question=question,
+        )
+
+    failures = list((tmp_path / "failures").glob("*.txt"))
+    assert failures, "no failure log persisted"
+    body = failures[0].read_text()
+    assert "subprocess" in body  # the offending source is in the dump
+
+
+def test_reject_terminations_is_immutable_set():
+    """REJECT_TERMINATIONS is a frozenset so a misguided test or fix
+    can't accidentally extend it at runtime."""
+    assert isinstance(REJECT_TERMINATIONS, frozenset)

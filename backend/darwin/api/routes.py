@@ -64,8 +64,15 @@ def download_engine_code(name: str):
 
     path = Path(code_path)
     if not path.is_absolute() or not path.exists():
-        # Treat as a dotted module name (baseline-v0 case).
-        spec = importlib.util.find_spec(code_path)
+        # Treat as a dotted module name (baseline-v0 case). find_spec
+        # raises ModuleNotFoundError when an intermediate package is
+        # missing (e.g. "darwin.nope.notreal" — "darwin.nope" doesn't
+        # exist). Catch it and return 404 alongside the documented
+        # spec-is-None branch.
+        try:
+            spec = importlib.util.find_spec(code_path)
+        except (ModuleNotFoundError, ValueError):
+            spec = None
         if spec is None or spec.origin is None:
             raise HTTPException(
                 status_code=404,
