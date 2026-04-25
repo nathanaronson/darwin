@@ -49,12 +49,28 @@ const CATEGORY_COLORS: Record<StrategistQuestion["category"], string> = {
  * @returns a scrollable column of question cards, newest at the bottom
  */
 export default function StrategistFeed({ events }: StrategistFeedProps) {
-  // Extract questions and builder results from the flat event log
-  const questions = events.filter(
-    (e): e is StrategistQuestion => e.type === "strategist.question"
+  // Show only the CURRENT generation's questions/builders. Strategist
+  // and builder events use a per-gen index (0..N-1) that isn't unique
+  // across generations — so without this filter, gen 2's questions
+  // collide with gen 1's on the React `key={q.index}` and the panel
+  // appears to "stick" on the previous generation. We bound the
+  // visible window to "events emitted after the latest
+  // generation.started / generation.cancelled boundary" — same idea
+  // LiveBoards uses.
+  let lastBoundary = -1;
+  for (let i = 0; i < events.length; i++) {
+    const t = events[i].type;
+    if (t === "generation.started" || t === "generation.cancelled") {
+      lastBoundary = i;
+    }
+  }
+  const currentEvents = events.slice(lastBoundary + 1);
+
+  const questions = currentEvents.filter(
+    (e): e is StrategistQuestion => e.type === "strategist.question",
   );
-  const builders = events.filter(
-    (e): e is BuilderCompleted => e.type === "builder.completed"
+  const builders = currentEvents.filter(
+    (e): e is BuilderCompleted => e.type === "builder.completed",
   );
 
   /** Look up the builder result for a given question index, if it has arrived. */

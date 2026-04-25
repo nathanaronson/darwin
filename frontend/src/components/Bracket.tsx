@@ -38,9 +38,22 @@ interface BracketProps {
  * @returns a dark card with an engine-vs-engine result grid
  */
 export default function Bracket({ events }: BracketProps) {
-  // Find the most recently started generation
+  // Find the LATEST generation.started boundary so we can scope every
+  // downstream lookup (builders, finished games) to just the current
+  // generation. Without this, gen 1's accepted engines and finished
+  // games leak into gen 2's bracket — names overlap and points read
+  // as 0/garbage.
+  let lastBoundary = -1;
+  for (let i = 0; i < events.length; i++) {
+    const t = events[i].type;
+    if (t === "generation.started" || t === "generation.cancelled") {
+      lastBoundary = i;
+    }
+  }
+  const currentEvents = events.slice(lastBoundary + 1);
+
   const genStarts = events.filter(
-    (e): e is GenerationStarted => e.type === "generation.started"
+    (e): e is GenerationStarted => e.type === "generation.started",
   );
   const currentGen = genStarts[genStarts.length - 1] as
     | GenerationStarted
@@ -60,10 +73,11 @@ export default function Bracket({ events }: BracketProps) {
   }
 
   // Collect all successfully built engines for the current generation.
-  // BuilderCompleted.engine_name gives us the candidate names.
-  const builderEvents = events.filter(
+  // Scoped to currentEvents (post-boundary) so gen 1's accepted
+  // candidates don't appear in gen 2's roster.
+  const builderEvents = currentEvents.filter(
     (e): e is BuilderCompleted =>
-      e.type === "builder.completed" && e.ok
+      e.type === "builder.completed" && e.ok,
   );
 
   // The roster: champion first, then all ok candidates in question_index order
@@ -74,11 +88,11 @@ export default function Bracket({ events }: BracketProps) {
       .map((b) => b.engine_name),
   ];
 
-  // Finished games for this generation — we don't have a generation tag on
-  // GameFinished, so we include all finished games and let the matrix filter
-  // by name. This is safe because engine names embed the generation number.
-  const finishedGames = events.filter(
-    (e): e is GameFinished => e.type === "game.finished"
+  // Finished games for this generation — scoped to currentEvents so a
+  // finished gen-1 game doesn't fill in a gen-2 cell when the engine
+  // names happen to share a prefix.
+  const finishedGames = currentEvents.filter(
+    (e): e is GameFinished => e.type === "game.finished",
   );
 
   /**
