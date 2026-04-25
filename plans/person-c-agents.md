@@ -8,15 +8,15 @@ You build the brain of the self-improvement loop: the agent that decides *what t
 
 1. `docs/proposal.pdf` — focus on §3.1 (Three Roles) and §9 (Risks).
 2. `plans/README.md` — merge order and frozen contracts.
-3. `backend/cubist/engines/base.py` — the Protocol that builder output must satisfy.
-4. `backend/cubist/llm.py` — the shared Anthropic helper. Use `complete()` (with `tools=`) for both agents.
-5. `backend/cubist/engines/random_engine.py` — your validator's sparring partner.
-6. `backend/cubist/engines/baseline.py` — read this once Person A merges it; this is what your builder will be modifying.
+3. `backend/darwin/engines/base.py` — the Protocol that builder output must satisfy.
+4. `backend/darwin/llm.py` — the shared Anthropic helper. Use `complete()` (with `tools=`) for both agents.
+5. `backend/darwin/engines/random_engine.py` — your validator's sparring partner.
+6. `backend/darwin/engines/baseline.py` — read this once Person A merges it; this is what your builder will be modifying.
 
 ## Files you own
 
 ```
-backend/cubist/agents/
+backend/darwin/agents/
 ├── strategist.py              # IMPLEMENT
 ├── builder.py                 # IMPLEMENT
 └── prompts/
@@ -29,20 +29,20 @@ backend/tests/test_builder.py      # CREATE
 ## What's already done for you
 
 - `strategist.py` and `builder.py` have stubs with the right function signatures and `Question` dataclass.
-- `cubist.llm.complete()` handles auth, semaphore, retry, and tool-use. Pass it `tools=[...]` and read the `tool_use` block from the returned `content`.
+- `darwin.llm.complete()` handles auth, semaphore, retry, and tool-use. Pass it `tools=[...]` and read the `tool_use` block from the returned `content`.
 - `RandomEngine` exists for your validator's smoke games.
 
 ## Step-by-step (do these in order)
 
-### Step 1 — Branch and verify (15 min)
+### Step 1 — Branch and verify
 
 ```bash
 git checkout -b feat/agents
 cd backend && uv sync
-uv run python -c "from cubist.llm import complete; print('ok')"
+uv run python -c "from darwin.llm import complete; print('ok')"
 ```
 
-### Step 2 — Stub responses to unblock Person E (30 min)
+### Step 2 — Stub responses to unblock Person E
 
 E starts integrating with you immediately. Make `propose_questions` and `build_engine` return hardcoded values that satisfy the contract, so E can wire orchestration end-to-end against fakes.
 
@@ -70,9 +70,9 @@ async def validate_engine(module_path):
 
 Commit and push: "feat(agents): stub implementations for parallel dev." Tell Person E you've shipped stubs.
 
-### Step 3 — Real strategist with tool-use (3 hours)
+### Step 3 — Real strategist with tool-use
 
-`backend/cubist/agents/prompts/strategist_v1.md`:
+`backend/darwin/agents/prompts/strategist_v1.md`:
 ```
 You are the strategist for a self-improving chess engine. Below is the current
 champion's source code and a history of prior generations.
@@ -96,14 +96,14 @@ HISTORY (prior generations, JSON):
 {history_json}
 ```
 
-`backend/cubist/agents/strategist.py`:
+`backend/darwin/agents/strategist.py`:
 ```python
 import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from cubist.config import settings
-from cubist.llm import complete
+from darwin.config import settings
+from darwin.llm import complete
 
 PROMPT = (Path(__file__).parent / "prompts" / "strategist_v1.md").read_text()
 CATEGORIES = ["prompt", "search", "book", "evaluation", "sampling"]
@@ -164,9 +164,9 @@ async def propose_questions(champion_code: str, history: list[dict]) -> list[Que
     raise RuntimeError("strategist did not return tool_use")
 ```
 
-### Step 4 — Real builder with tool-use (3 hours)
+### Step 4 — Real builder with tool-use
 
-`backend/cubist/agents/prompts/builder_v1.md`:
+`backend/darwin/agents/prompts/builder_v1.md`:
 ```
 You are a chess engine builder. Modify the champion below to answer ONE
 specific improvement question.
@@ -178,27 +178,27 @@ CHAMPION SOURCE:
 {champion_code}
 
 REQUIREMENTS:
-- Subclass `BaseLLMEngine` from `cubist.engines.base`.
+- Subclass `BaseLLMEngine` from `darwin.engines.base`.
 - The class __init__ must call super().__init__(name="{engine_name}",
   generation={generation}, lineage=["{champion_name}"]).
 - Implement `async def select_move(self, board, time_remaining_ms)`.
 - Module must end with: `engine = YourEngineClass()`.
 - Stay under 100 lines.
-- Allowed imports ONLY: stdlib, `chess`, `cubist.config`, `cubist.engines.base`,
-  `cubist.llm`. NO subprocess, os.system, socket, or eval.
+- Allowed imports ONLY: stdlib, `chess`, `darwin.config`, `darwin.engines.base`,
+  `darwin.llm`. NO subprocess, os.system, socket, or eval.
 - Always have a fallback to a legal move so the engine never crashes a game.
 ```
 
-`backend/cubist/agents/builder.py`:
+`backend/darwin/agents/builder.py`:
 ```python
 import hashlib
 import re
 from pathlib import Path
 
-from cubist.config import settings
-from cubist.engines.registry import GENERATED_DIR
-from cubist.llm import complete
-from cubist.agents.strategist import Question
+from darwin.config import settings
+from darwin.engines.registry import GENERATED_DIR
+from darwin.llm import complete
+from darwin.agents.strategist import Question
 
 PROMPT = (Path(__file__).parent / "prompts" / "builder_v1.md").read_text()
 
@@ -241,9 +241,9 @@ async def build_engine(champion_code, champion_name, generation, question) -> Pa
 
 async def validate_engine(module_path: Path) -> tuple[bool, str | None]:
     """Smoke-test: load + play one short game vs random."""
-    from cubist.engines.registry import load_engine
-    from cubist.engines.random_engine import RandomEngine
-    from cubist.tournament.referee import play_game
+    from darwin.engines.registry import load_engine
+    from darwin.engines.random_engine import RandomEngine
+    from darwin.tournament.referee import play_game
 
     try:
         eng = load_engine(str(module_path))
@@ -261,13 +261,13 @@ async def validate_engine(module_path: Path) -> tuple[bool, str | None]:
     return True, None
 ```
 
-### Step 5 — Tests (1 hour)
+### Step 5 — Tests
 
-`tests/test_strategist.py` — mock `cubist.llm.complete` with `monkeypatch`, return a fake tool-use response, assert 2 distinct categories.
+`tests/test_strategist.py` — mock `darwin.llm.complete` with `monkeypatch`, return a fake tool-use response, assert 2 distinct categories.
 
 `tests/test_builder.py` — same pattern; verify file is written, FORBIDDEN regex rejects bad code, validator rejects a syntax-error module.
 
-### Step 6 — Open the PR (15 min)
+### Step 6 — Open the PR
 
 ```bash
 git add -A && git commit -m "feat: strategist + builder agents with tool-use"
@@ -277,10 +277,10 @@ gh pr create --title "Agents" --body "Closes plan C."
 
 ## Definition of done
 
-- [ ] Stubs (Step 2) pushed to a branch within 30 min so Person E unblocks.
+- [ ] Stubs (Step 2) pushed to a branch quickly so Person E unblocks.
 - [ ] Real strategist returns 2 distinct categories from a real Opus call.
 - [ ] Real builder produces an engine that validates and beats `RandomEngine` >50% in a 4-game match.
-- [ ] PR open by **hour 8**, merged by **hour 10**.
+- [ ] PR opened, then merged after review.
 
 ## Integration points
 

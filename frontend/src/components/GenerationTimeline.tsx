@@ -20,7 +20,7 @@
  */
 
 import type {
-  CubistEvent,
+  DarwinEvent,
   GenerationStarted,
   StrategistQuestion,
   GenerationFinished,
@@ -29,7 +29,7 @@ import type {
 /** Props accepted by {@link GenerationTimeline}. */
 interface GenerationTimelineProps {
   /** Full accumulated event log from {@link useEventStream}. */
-  events: CubistEvent[];
+  events: DarwinEvent[];
 }
 
 /** All data we need to render one timeline row, assembled from multiple events. */
@@ -180,7 +180,7 @@ function GenerationRow({ row }: { row: GenRow }) {
  * Groups by generation number by scanning for GenerationStarted events, then
  * attaches questions and the optional GenerationFinished result.
  */
-function buildRows(events: CubistEvent[]): GenRow[] {
+function buildRows(events: DarwinEvent[]): GenRow[] {
   const starts = events.filter(
     (e): e is GenerationStarted => e.type === "generation.started"
   );

@@ -36,9 +36,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
 from sqlmodel import select  # noqa: E402
 
-from cubist.api.websocket import bus  # noqa: E402
-from cubist.storage.db import get_session  # noqa: E402
-from cubist.storage.models import GameRow, GenerationRow  # noqa: E402
+from darwin.api.websocket import bus  # noqa: E402
+from darwin.storage.db import get_session  # noqa: E402
+from darwin.storage.models import GameRow, GenerationRow  # noqa: E402
 
 
 async def replay_generation(

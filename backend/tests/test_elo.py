@@ -1,6 +1,6 @@
 import pytest
 
-from cubist.tournament.elo import update_elo
+from darwin.tournament.elo import update_elo
 
 
 def test_draw_at_equal_rating_unchanged():

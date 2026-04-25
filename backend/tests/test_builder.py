@@ -1,6 +1,6 @@
-"""Tests for cubist.agents.builder.
+"""Tests for darwin.agents.builder.
 
-We mock ``cubist.llm.complete`` to avoid live API calls. The forbidden-
+We mock ``darwin.llm.complete`` to avoid live API calls. The forbidden-
 import regex is exercised both as a positive test (legal code passes)
 and as a negative test (subprocess-laden code is rejected).
 """
@@ -11,14 +11,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from cubist.agents.builder import (
+from darwin.agents.builder import (
     FORBIDDEN,
     REJECT_TERMINATIONS,
     REQUIRED_PATTERNS,
     build_engine,
     validate_engine,
 )
-from cubist.agents.strategist import Question
+from darwin.agents.strategist import Question
 
 # A minimal "good" engine source: subclasses BaseLLMEngine, has the
 # required `engine = …` symbol, has the async select_move signature, and
@@ -27,9 +27,9 @@ from cubist.agents.strategist import Question
 LEGAL_ENGINE_SOURCE = """\
 import chess
 
-from cubist.engines.base import BaseLLMEngine
-from cubist.llm import complete_text
-from cubist.config import settings
+from darwin.engines.base import BaseLLMEngine
+from darwin.llm import complete_text
+from darwin.config import settings
 
 
 class CandidateEngine(BaseLLMEngine):
@@ -70,13 +70,13 @@ def question() -> Question:
 async def test_build_engine_writes_module(tmp_path, monkeypatch, question):
     """Happy path — file is written under generated/, named after category + sha."""
     monkeypatch.setattr(
-        "cubist.agents.builder.GENERATED_DIR", tmp_path / "generated"
+        "darwin.agents.builder.GENERATED_DIR", tmp_path / "generated"
     )
 
     async def fake_complete(**kwargs):
         return [_fake_tool_use_block(LEGAL_ENGINE_SOURCE)]
 
-    monkeypatch.setattr("cubist.agents.builder.complete", fake_complete)
+    monkeypatch.setattr("darwin.agents.builder.complete", fake_complete)
 
     path = await build_engine(
         champion_code="x = 1",
@@ -94,7 +94,7 @@ async def test_build_engine_writes_module(tmp_path, monkeypatch, question):
 async def test_build_engine_rejects_forbidden_imports(tmp_path, monkeypatch, question):
     """Source containing a banned token raises ValueError."""
     monkeypatch.setattr(
-        "cubist.agents.builder.GENERATED_DIR", tmp_path / "generated"
+        "darwin.agents.builder.GENERATED_DIR", tmp_path / "generated"
     )
 
     bad_source = LEGAL_ENGINE_SOURCE + "\nimport subprocess\n"
@@ -102,7 +102,7 @@ async def test_build_engine_rejects_forbidden_imports(tmp_path, monkeypatch, que
     async def fake_complete(**kwargs):
         return [_fake_tool_use_block(bad_source)]
 
-    monkeypatch.setattr("cubist.agents.builder.complete", fake_complete)
+    monkeypatch.setattr("darwin.agents.builder.complete", fake_complete)
 
     with pytest.raises(ValueError, match="forbidden"):
         await build_engine(
@@ -117,13 +117,13 @@ async def test_build_engine_rejects_forbidden_imports(tmp_path, monkeypatch, que
 async def test_build_engine_no_tool_use_raises(tmp_path, monkeypatch, question):
     """Reply without a submit_engine tool_use block is a hard failure."""
     monkeypatch.setattr(
-        "cubist.agents.builder.GENERATED_DIR", tmp_path / "generated"
+        "darwin.agents.builder.GENERATED_DIR", tmp_path / "generated"
     )
 
     async def fake_complete(**kwargs):
         return [SimpleNamespace(type="text", text="here is some prose, sorry")]
 
-    monkeypatch.setattr("cubist.agents.builder.complete", fake_complete)
+    monkeypatch.setattr("darwin.agents.builder.complete", fake_complete)
 
     with pytest.raises(RuntimeError, match="tool_use"):
         await build_engine(
@@ -152,8 +152,8 @@ def test_forbidden_regex_matches_known_bad_patterns():
 def test_forbidden_regex_allows_legitimate_imports():
     good = [
         "import chess",
-        "from cubist.engines.base import BaseLLMEngine",
-        "from cubist.llm import complete_text",
+        "from darwin.engines.base import BaseLLMEngine",
+        "from darwin.llm import complete_text",
         "import random",
         "import math",
         "result = 1 + 2",
@@ -195,7 +195,7 @@ def _drop_pattern(source: str, pattern_name: str) -> str:
         return source.replace("async def select_move", "def select_move")
     if pattern_name == "llm_call":
         # Remove the LLM call line + the import; leave the fallback.
-        out = source.replace("from cubist.llm import complete_text\n", "")
+        out = source.replace("from darwin.llm import complete_text\n", "")
         out = out.replace(
             "        try:\n"
             '            text = await complete_text(\n'
@@ -219,14 +219,14 @@ async def test_build_engine_rejects_missing_required_pattern(
     tmp_path, monkeypatch, question, pattern_name
 ):
     """When the model omits engine= / async select_move / LLM call, build raises."""
-    monkeypatch.setattr("cubist.agents.builder.GENERATED_DIR", tmp_path / "generated")
-    monkeypatch.setattr("cubist.agents.builder.FAILED_DIR", tmp_path / "failures")
+    monkeypatch.setattr("darwin.agents.builder.GENERATED_DIR", tmp_path / "generated")
+    monkeypatch.setattr("darwin.agents.builder.FAILED_DIR", tmp_path / "failures")
     bad_source = _drop_pattern(LEGAL_ENGINE_SOURCE, pattern_name)
 
     async def fake_complete(**kwargs):
         return [_fake_tool_use_block(bad_source)]
 
-    monkeypatch.setattr("cubist.agents.builder.complete", fake_complete)
+    monkeypatch.setattr("darwin.agents.builder.complete", fake_complete)
 
     with pytest.raises(ValueError, match=pattern_name):
         await build_engine(
@@ -248,7 +248,7 @@ async def test_validate_engine_runs_static_gates_on_existing_file(tmp_path):
     bad = tmp_path / "bad_engine.py"
     bad.write_text(
         "import chess\n"
-        "from cubist.engines.base import BaseLLMEngine\n"
+        "from darwin.engines.base import BaseLLMEngine\n"
         "class C(BaseLLMEngine):\n"
         "    def select_move(self, board, time_remaining_ms):\n"
         "        return next(iter(board.legal_moves))\n"
@@ -331,8 +331,8 @@ async def test_build_engine_rejects_chess_attribute_hallucination(
     tmp_path, monkeypatch, question
 ):
     """Gemini wrote `chess.NAVY: 300,` in a piece-value table. Caught now."""
-    monkeypatch.setattr("cubist.agents.builder.GENERATED_DIR", tmp_path / "generated")
-    monkeypatch.setattr("cubist.agents.builder.FAILED_DIR", tmp_path / "failures")
+    monkeypatch.setattr("darwin.agents.builder.GENERATED_DIR", tmp_path / "generated")
+    monkeypatch.setattr("darwin.agents.builder.FAILED_DIR", tmp_path / "failures")
     bad_source = LEGAL_ENGINE_SOURCE.replace(
         "import chess", "import chess\nPIECE_VALUES = {chess.NAVY: 300}"
     )
@@ -340,7 +340,7 @@ async def test_build_engine_rejects_chess_attribute_hallucination(
     async def fake_complete(**kwargs):
         return [_fake_tool_use_block(bad_source)]
 
-    monkeypatch.setattr("cubist.agents.builder.complete", fake_complete)
+    monkeypatch.setattr("darwin.agents.builder.complete", fake_complete)
 
     with pytest.raises(ValueError, match="chess_attrs"):
         await build_engine(
@@ -363,8 +363,8 @@ async def test_build_engine_rejects_nonexistent_chess_function(
     ``chess.distance`` which doesn't exist at all, so the static check
     is what fires.
     """
-    monkeypatch.setattr("cubist.agents.builder.GENERATED_DIR", tmp_path / "generated")
-    monkeypatch.setattr("cubist.agents.builder.FAILED_DIR", tmp_path / "failures")
+    monkeypatch.setattr("darwin.agents.builder.GENERATED_DIR", tmp_path / "generated")
+    monkeypatch.setattr("darwin.agents.builder.FAILED_DIR", tmp_path / "failures")
     bad_source = LEGAL_ENGINE_SOURCE.replace(
         "return next(iter(board.legal_moves))",
         "x = chess.distance(0, 5)\n            return next(iter(board.legal_moves))",
@@ -373,7 +373,7 @@ async def test_build_engine_rejects_nonexistent_chess_function(
     async def fake_complete(**kwargs):
         return [_fake_tool_use_block(bad_source)]
 
-    monkeypatch.setattr("cubist.agents.builder.complete", fake_complete)
+    monkeypatch.setattr("darwin.agents.builder.complete", fake_complete)
 
     with pytest.raises(ValueError, match="chess_attrs"):
         await build_engine(
@@ -386,7 +386,7 @@ async def test_build_engine_rejects_nonexistent_chess_function(
 
 def test_chess_attribute_check_accepts_real_attrs():
     """Sanity: every chess.X reference that's real must NOT be flagged."""
-    from cubist.agents.builder import _check_hallucinated_chess_attrs
+    from darwin.agents.builder import _check_hallucinated_chess_attrs
 
     real_source = (
         "import chess\n"
@@ -410,7 +410,7 @@ def test_chess_attribute_check_flags_hallucinations():
     the static gate; that case shows up as a runtime TypeError caught
     by the smoke-game phase.
     """
-    from cubist.agents.builder import _check_hallucinated_chess_attrs
+    from darwin.agents.builder import _check_hallucinated_chess_attrs
 
     src = "import chess\nx = chess.NAVY\ny = chess.distance(0, 5)\n"
     reason = _check_hallucinated_chess_attrs(src)

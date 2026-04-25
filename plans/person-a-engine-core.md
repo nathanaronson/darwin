@@ -8,13 +8,13 @@ You own the abstraction every other workstream depends on. Get the contract righ
 
 1. `docs/proposal.pdf` — the whole project, 9 pages.
 2. `plans/README.md` — the merge order and frozen contracts.
-3. `backend/cubist/engines/base.py` — the Engine Protocol you'll build against (already complete).
-4. `backend/cubist/llm.py` — the shared Anthropic helper you'll call (already complete).
+3. `backend/darwin/engines/base.py` — the Engine Protocol you'll build against (already complete).
+4. `backend/darwin/llm.py` — the shared Anthropic helper you'll call (already complete).
 
 ## Files you own
 
 ```
-backend/cubist/engines/
+backend/darwin/engines/
 ├── base.py              # FROZEN — Engine Protocol + BaseLLMEngine (done)
 ├── baseline.py          # generation-0 LLM engine — IMPLEMENT
 ├── random_engine.py     # already complete; you maintain it
@@ -33,25 +33,25 @@ backend/tests/test_registry.py   # CREATE
 
 ## Step-by-step (do these in order)
 
-### Step 1 — Branch and verify the env (15 min)
+### Step 1 — Branch and verify the env
 
 ```bash
 git checkout -b feat/engine-core
 cd backend && uv sync
 cp ../.env.example ../.env  # add your ANTHROPIC_API_KEY
-uv run python -c "from cubist.engines.base import Engine; print('ok')"
-uv run python -c "from cubist.llm import complete_text; print('ok')"
+uv run python -c "from darwin.engines.base import Engine; print('ok')"
+uv run python -c "from darwin.llm import complete_text; print('ok')"
 ```
 
-### Step 2 — Implement `BaselineEngine.select_move` (90 min)
+### Step 2 — Implement `BaselineEngine.select_move`
 
-Edit `backend/cubist/engines/baseline.py`. Use this exact structure:
+Edit `backend/darwin/engines/baseline.py`. Use this exact structure:
 
 ```python
 import chess
-from cubist.config import settings
-from cubist.engines.base import BaseLLMEngine
-from cubist.llm import complete_text
+from darwin.config import settings
+from darwin.engines.base import BaseLLMEngine
+from darwin.llm import complete_text
 
 SYSTEM = (
     "You are a chess engine. Reply with EXACTLY ONE legal move in standard "
@@ -85,23 +85,23 @@ Verify by running:
 ```bash
 uv run python -c "
 import asyncio, chess
-from cubist.engines.baseline import engine
+from darwin.engines.baseline import engine
 b = chess.Board()
 m = asyncio.run(engine.select_move(b, 10000))
 print('move:', b.san(m))
 "
 ```
 
-### Step 3 — Implement `registry.load_engine` (45 min)
+### Step 3 — Implement `registry.load_engine`
 
-Edit `backend/cubist/engines/registry.py`:
+Edit `backend/darwin/engines/registry.py`:
 
 ```python
 import importlib
 import importlib.util
 from pathlib import Path
 
-from cubist.engines.base import Engine
+from darwin.engines.base import Engine
 
 GENERATED_DIR = Path(__file__).parent / "generated"
 
@@ -129,25 +129,25 @@ def list_generated() -> list[Path]:
     return sorted(GENERATED_DIR.glob("*.py"))
 ```
 
-### Step 4 — Write tests (45 min)
+### Step 4 — Write tests
 
 `backend/tests/test_registry.py`:
 ```python
 import tempfile
 from pathlib import Path
-from cubist.engines.registry import load_engine
+from darwin.engines.registry import load_engine
 
 def test_loads_baseline_by_dotted_path():
-    eng = load_engine("cubist.engines.baseline")
+    eng = load_engine("darwin.engines.baseline")
     assert eng.name == "baseline-v0"
 
 def test_loads_random_by_dotted_path():
-    eng = load_engine("cubist.engines.random_engine")
+    eng = load_engine("darwin.engines.random_engine")
     assert eng.name == "random"
 
 def test_loads_from_file():
     src = '''
-from cubist.engines.random_engine import RandomEngine
+from darwin.engines.random_engine import RandomEngine
 engine = RandomEngine()
 '''
     with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
@@ -167,7 +167,7 @@ def test_rejects_module_without_engine_symbol(tmp_path):
 ```python
 import chess
 import pytest
-from cubist.engines.baseline import engine
+from darwin.engines.baseline import engine
 
 @pytest.mark.asyncio
 async def test_baseline_returns_legal_move():
@@ -181,12 +181,12 @@ Run them:
 uv run pytest tests/ -v
 ```
 
-### Step 5 — End-to-end self-play smoke test (15 min)
+### Step 5 — End-to-end self-play smoke test
 
 Add `scripts/smoke_self_play.py`:
 ```python
 import asyncio, chess
-from cubist.engines.baseline import engine
+from darwin.engines.baseline import engine
 
 async def main():
     board = chess.Board()
@@ -201,7 +201,7 @@ asyncio.run(main())
 
 Run it: `uv run python scripts/smoke_self_play.py`. If 10 moves complete, you're done.
 
-### Step 6 — Open the PR (15 min)
+### Step 6 — Open the PR
 
 ```bash
 git add -A && git commit -m "feat: baseline LLM engine + registry"
@@ -216,7 +216,7 @@ Page Person B and C in chat: "engine-core merged."
 - [ ] Step 2 verification command prints a legal move.
 - [ ] All four tests in Step 4 pass.
 - [ ] `smoke_self_play.py` plays 10 moves without crashing.
-- [ ] PR open by **hour 4**, merged by **hour 6**.
+- [ ] PR opened, then merged after review.
 
 ## Integration points
 
@@ -226,6 +226,6 @@ Page Person B and C in chat: "engine-core merged."
 
 ## Watch out for
 
-- **Don't change `base.py` after hour 1.** Other people are mocking against it. If you absolutely need to, page the team.
+- **Don't change `base.py` once it's landed.** Other people are mocking against it. If you absolutely need to, page the team.
 - **Illegal-move parsing.** Always have a fallback (the `next(iter(board.legal_moves))` line) so a malformed LLM response doesn't crash a game.
-- **Don't import `anthropic` directly.** Always go through `cubist.llm` so we have one rate-limit choke point.
+- **Don't import `anthropic` directly.** Always go through `darwin.llm` so we have one rate-limit choke point.

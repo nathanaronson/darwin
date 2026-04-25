@@ -1,5 +1,5 @@
 /**
- * mockEvents.ts — offline development fixture for the Cubist dashboard.
+ * mockEvents.ts — offline development fixture for the Darwin dashboard.
  *
  * Simulates a full two-generation lifecycle without a live backend. Each event
  * is delivered on a real timer so animations and state transitions behave
@@ -13,18 +13,18 @@
  * @module mockEvents
  */
 
-import type { CubistEvent } from "../api/events";
+import type { DarwinEvent } from "../api/events";
 
 /**
- * Starts a mock WebSocket-like event stream that fires {@link CubistEvent}s
+ * Starts a mock WebSocket-like event stream that fires {@link DarwinEvent}s
  * on real wall-clock timers, replicating the pacing of a live generation run.
  *
  * @param onEvent - callback invoked for each event as it "arrives"
  * @returns cleanup function that cancels all pending timeouts
  */
-export function startMockStream(onEvent: (e: CubistEvent) => void): () => void {
+export function startMockStream(onEvent: (e: DarwinEvent) => void): () => void {
   /** Each entry defines how long after the *previous* event this one fires. */
-  const seq: { delay: number; event: CubistEvent }[] = [
+  const seq: { delay: number; event: DarwinEvent }[] = [
     // ── Generation 1 startup ──────────────────────────────────────────────
     {
       delay: 0,

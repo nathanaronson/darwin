@@ -1,5 +1,5 @@
 /**
- * App.tsx — top-level layout shell for the Cubist dashboard.
+ * App.tsx — top-level layout shell for the Darwin dashboard.
  *
  * Mounts the {@link useEventStream} hook and fans the accumulated event log
  * out to all five dashboard components. No per-component state management is
@@ -26,7 +26,7 @@ import Bracket from "./components/Bracket";
 import GenerationTimeline from "./components/GenerationTimeline";
 
 /**
- * App — root component that assembles the full Cubist dashboard.
+ * App — root component that assembles the full Darwin dashboard.
  *
  * Uses {@link useEventStream} to obtain the live (or mock) event log, then
  * passes it to every panel. Switching from mock to live requires only removing
@@ -135,10 +135,10 @@ export default function App() {
       <header className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-widest text-gray-100">
-            SELF-IMPROVING CHESS ENGINE
+            DARWIN
           </h1>
           <p className="text-xs text-gray-500 mt-0.5">
-            Agentic tournament selection, one generation at a time
+            A self-improving chess engine. Agentic tournament selection, one generation at a time.
           </p>
         </div>
 

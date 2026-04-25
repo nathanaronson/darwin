@@ -16,8 +16,8 @@ from typing import Awaitable, Callable
 import chess
 import chess.pgn
 
-from cubist.config import settings
-from cubist.engines.base import Engine
+from darwin.config import settings
+from darwin.engines.base import Engine
 
 EventCb = Callable[[dict], Awaitable[None]] | None
 log = logging.getLogger(__name__)

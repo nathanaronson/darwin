@@ -44,4 +44,4 @@ def setup_logging() -> None:
             logging.getLogger(noisy).setLevel(logging.WARNING)
 
     _CONFIGURED = True
-    logging.getLogger("cubist").info("logging configured at level=%s", level)
+    logging.getLogger("darwin").info("logging configured at level=%s", level)

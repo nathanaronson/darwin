@@ -1,4 +1,4 @@
-"""Tests for cubist.agents.strategist on the experimental pure-code branch.
+"""Tests for darwin.agents.strategist on the experimental pure-code branch.
 
 The strategist is deterministic now — no LLM calls. Tests cover:
   - 4 questions returned, one per category in CATEGORIES_USED
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from cubist.agents.strategist import (
+from darwin.agents.strategist import (
     CATEGORIES_USED,
     QUESTION_POOLS,
     Question,

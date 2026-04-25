@@ -12,7 +12,7 @@ import math
 
 import chess
 
-from cubist.engines.base import BaseLLMEngine
+from darwin.engines.base import BaseLLMEngine
 
 PIECE_VALUES = {
     chess.PAWN: 100,

@@ -4,7 +4,7 @@
 **Status:** local-only — does **not** ship to `main`
 **Owner:** Person C (Aadithya)
 
-This branch flips Cubist from "LLM-prompt evolution" to "LLM-as-classical-
+This branch flips Darwin from "LLM-prompt evolution" to "LLM-as-classical-
 engine-author." Candidate engines are pure Python — they don't call the
 LLM at play time. Only the *builder* (Gemini, generating engine source)
 touches an LLM; the strategist became deterministic on this branch.
@@ -17,7 +17,7 @@ the LLM-driven design.
 
 ## Why this branch exists
 
-The original Cubist design has every candidate engine subclass
+The original Darwin design has every candidate engine subclass
 `BaseLLMEngine` and call `complete_text(...)` from inside `select_move`.
 Every move = one Gemini API call. ~30 candidate moves per game × ~24
 games per generation = ~720 LLM calls per gen tournament *just for
@@ -41,19 +41,19 @@ working in seconds instead of half-broken in minutes.
 
 ### Backend
 
-#### `backend/cubist/agents/builder.py`
+#### `backend/darwin/agents/builder.py`
 - Dropped the `llm_call` entry from `REQUIRED_PATTERNS` — engines no
   longer have to call `complete_text` / `complete`.
 - Removed the `_check_llm_call_in_loop` static gate (was AST-walking
   for LLM calls inside loops; pointless when there are no LLM calls).
 - All other gates still active: forbidden-imports, `BANNED_IMPORTS`
-  (the `from cubist import config as settings` trap), hallucinated
+  (the `from darwin import config as settings` trap), hallucinated
   `chess.X` attributes via `_check_hallucinated_chess_attrs`.
 
-#### `backend/cubist/agents/prompts/builder_v1.md`
+#### `backend/darwin/agents/prompts/builder_v1.md`
 - Header rewritten from "LLM-prompt strategy" to "complete classical
   chess engine in pure Python."
-- `cubist.llm` removed from the allowed-imports list.
+- `darwin.llm` removed from the allowed-imports list.
 - New explicit rules:
   - `select_move` is pure Python — must NOT call `complete*`.
   - Per-move budget is 5 s; engines must respect this.
@@ -64,7 +64,7 @@ working in seconds instead of half-broken in minutes.
 - Worked example replaced: previously showed an LLM-wrapper engine,
   now shows a 1-ply material-eval engine with proper fallback.
 
-#### `backend/cubist/agents/strategist.py`
+#### `backend/darwin/agents/strategist.py`
 **Rewritten — no longer calls an LLM.**
 
 - `propose_questions` is now deterministic. Picks 4 questions per gen,
@@ -81,7 +81,7 @@ working in seconds instead of half-broken in minutes.
   but the only inputs that affect output are `generation_number` and
   the champion-category counts derivable from `history`.
 
-#### `backend/cubist/orchestration/generation.py`
+#### `backend/darwin/orchestration/generation.py`
 - Calls `propose_questions` with real `history` and `generation_number`
   (previously passed `[]` every gen, which broke rotation).
 - Builds history list from `GenerationRow`, parsing each gen's
@@ -97,7 +97,7 @@ working in seconds instead of half-broken in minutes.
   than expected)` if a runner-up's `EngineRow` is missing or
   `load_engine` raises.
 
-#### `backend/cubist/tournament/runner.py`
+#### `backend/darwin/tournament/runner.py`
 - Branches on `settings.tournament_backend` between `_round_robin_local`
   (existing asyncio path) and `_round_robin_modal` (new — dispatches
   each game to a Modal container).
@@ -114,14 +114,14 @@ working in seconds instead of half-broken in minutes.
   - Spawns games via `play_game_remote.starmap.aio`.
   - Tail-drains the queue after the last game, then cancels the drainer.
 
-#### `backend/cubist/tournament/modal_runner.py` (new file)
-- Defines `cubist-tournament` Modal app.
+#### `backend/darwin/tournament/modal_runner.py` (new file)
+- Defines `darwin-tournament` Modal app.
 - Image: `debian_slim` + `python-chess`/`sqlmodel`/`pydantic`/
   `pydantic-settings`. **No** `google-genai` or `anthropic` —
   pure-code engines don't need them. Saves ~100 MB image weight and
   ~2 s cold-start.
-- Local `cubist` source baked into the image via
-  `add_local_python_source("cubist", copy=True)`.
+- Local `darwin` source baked into the image via
+  `add_local_python_source("darwin", copy=True)`.
 - `play_game_remote` function:
   - `cpu=1`, `timeout=60` (down from initial 180; pathologically slow
     engines die at the container level instead of holding up the
@@ -131,25 +131,25 @@ working in seconds instead of half-broken in minutes.
   - `min_containers=0` — no idle baseline cost. The orchestrator's
     auto-warm bumps this to 20 just for the duration of a generation.
   - `enable_memory_snapshot=True` — Modal checkpoints the container
-    after `from cubist...` imports complete, dropping cold-start
+    after `from darwin...` imports complete, dropping cold-start
     from ~5–10 s to ~1–2 s for non-warm containers.
   - Takes engine source as strings (full module text), `exec`s it
     into a fresh module namespace inside the container, plays one
-    game via `cubist.tournament.referee.play_game`.
+    game via `darwin.tournament.referee.play_game`.
   - Buffers events into a list, flushes via
     `events_queue.put_many.aio(batch)` every 10 events to amortize
     the per-RPC ~50–100 ms cost.
 
-#### `backend/cubist/config.py`
+#### `backend/darwin/config.py`
 - Added `tournament_backend: str = "local"`. Toggle to `"modal"` via
   `TOURNAMENT_BACKEND=modal` in `.env` to dispatch tournaments to
   Modal containers.
 
-#### `backend/cubist/agents/builder.py`
+#### `backend/darwin/agents/builder.py`
 - Existing chess-attrs gate (catches hallucinated `chess.X` like
   `chess.NAVY`) and import-allowlist regex still active.
 
-#### `backend/cubist/engines/registry.py`
+#### `backend/darwin/engines/registry.py`
 - Already-merged fix from earlier today: registers file-loaded
   modules in `sys.modules` so `inspect.getsource(type(engine))` works
   on file-imported candidates — required for top-2 lineage to read
@@ -219,18 +219,18 @@ working in seconds instead of half-broken in minutes.
 
 ## Modal app
 
-Deployed at https://modal.com/apps/asrinivasan75/main/deployed/cubist-tournament
+Deployed at https://modal.com/apps/asrinivasan75/main/deployed/darwin-tournament
 
-To redeploy after changing local `cubist` code:
+To redeploy after changing local `darwin` code:
 ```
 cd backend
-.venv/bin/modal deploy cubist/tournament/modal_runner.py
+.venv/bin/modal deploy darwin/tournament/modal_runner.py
 ```
 
 Manual warm pool control (if not using auto-warm):
 ```
-modal app keep-warm cubist-tournament play_game_remote 20  # warm up
-modal app keep-warm cubist-tournament play_game_remote 0   # cool down
+modal app keep-warm darwin-tournament play_game_remote 20  # warm up
+modal app keep-warm darwin-tournament play_game_remote 0   # cool down
 ```
 
 ---
@@ -241,7 +241,7 @@ modal app keep-warm cubist-tournament play_game_remote 0   # cool down
 # Backend
 cd backend
 .venv/bin/python ../scripts/seed_baseline.py     # seed baseline-v0 if DB is fresh
-.venv/bin/uvicorn cubist.api.server:app --host 127.0.0.1 --port 8000
+.venv/bin/uvicorn darwin.api.server:app --host 127.0.0.1 --port 8000
 
 # Frontend (separate terminal)
 cd frontend

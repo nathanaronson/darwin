@@ -2,20 +2,20 @@
 
 **Branch:** `feat/tournament`
 
-You make engines fight each other. Your code is the load-bearing piece for the entire 24-hour timeline — if a single tournament can't finish in under 90 minutes, we don't get 3 generations done. Parallelism is non-negotiable.
+You make engines fight each other. Your code is the load-bearing piece for the whole pipeline — if a single tournament can't finish in under 90 minutes we don't get 3 generations done. Parallelism is non-negotiable.
 
 ## Read first
 
 1. `docs/proposal.pdf` — focus on §3 (Approach) and §9 (Risks).
 2. `plans/README.md` — merge order.
-3. `backend/cubist/engines/base.py` — the Engine Protocol you call into.
-4. `backend/cubist/engines/random_engine.py` — your day-one test partner before A merges baseline.
-5. `backend/cubist/api/websocket.py` — the event payloads you'll emit through E's bus.
+3. `backend/darwin/engines/base.py` — the Engine Protocol you call into.
+4. `backend/darwin/engines/random_engine.py` — your day-one test partner before A merges baseline.
+5. `backend/darwin/api/websocket.py` — the event payloads you'll emit through E's bus.
 
 ## Files you own
 
 ```
-backend/cubist/tournament/
+backend/darwin/tournament/
 ├── referee.py       # plays one game between two engines — IMPLEMENT
 ├── runner.py        # parallel round-robin — IMPLEMENT
 ├── elo.py           # rating updates — IMPLEMENT
@@ -30,22 +30,22 @@ backend/tests/test_selection.py  # CREATE
 ## What's already done for you
 
 - All four module files have stubs with the right function signatures and dataclass returns.
-- `RandomEngine` exists in `cubist.engines.random_engine` — use it for every test so you don't burn API budget.
+- `RandomEngine` exists in `darwin.engines.random_engine` — use it for every test so you don't burn API budget.
 - The `GameResult` and `Standings` dataclasses are already defined.
 
 ## Step-by-step (do these in order)
 
-### Step 1 — Branch and verify (15 min)
+### Step 1 — Branch and verify
 
 ```bash
 git checkout -b feat/tournament
 cd backend && uv sync
-uv run python -c "from cubist.engines.random_engine import RandomEngine; print('ok')"
+uv run python -c "from darwin.engines.random_engine import RandomEngine; print('ok')"
 ```
 
-### Step 2 — Implement Elo first (it's tiny) (15 min)
+### Step 2 — Implement Elo first (it's tiny)
 
-`backend/cubist/tournament/elo.py`:
+`backend/darwin/tournament/elo.py`:
 ```python
 def update_elo(rating_a: float, rating_b: float, score_a: float, k: float = 32.0) -> tuple[float, float]:
     expected_a = 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
@@ -57,7 +57,7 @@ def update_elo(rating_a: float, rating_b: float, score_a: float, k: float = 32.0
 
 Test (`tests/test_elo.py`):
 ```python
-from cubist.tournament.elo import update_elo
+from darwin.tournament.elo import update_elo
 
 def test_draw_at_equal_rating_unchanged():
     a, b = update_elo(1500, 1500, 0.5)
@@ -68,9 +68,9 @@ def test_win_increases_winner():
     assert a > 1500 and b < 1500
 ```
 
-### Step 3 — Implement `play_game` (2 hours)
+### Step 3 — Implement `play_game`
 
-`backend/cubist/tournament/referee.py`:
+`backend/darwin/tournament/referee.py`:
 ```python
 import asyncio
 import io
@@ -80,8 +80,8 @@ from typing import Awaitable, Callable
 import chess
 import chess.pgn
 
-from cubist.config import settings
-from cubist.engines.base import Engine
+from darwin.config import settings
+from darwin.engines.base import Engine
 
 EventCb = Callable[[dict], Awaitable[None]] | None
 
@@ -164,8 +164,8 @@ async def play_game(
 Test (`tests/test_referee.py`):
 ```python
 import pytest
-from cubist.engines.random_engine import RandomEngine
-from cubist.tournament.referee import play_game
+from darwin.engines.random_engine import RandomEngine
+from darwin.tournament.referee import play_game
 
 @pytest.mark.asyncio
 async def test_two_random_engines_finish():
@@ -176,17 +176,17 @@ async def test_two_random_engines_finish():
     assert r.pgn.startswith("[Event")
 ```
 
-### Step 4 — Implement `round_robin` (1.5 hours)
+### Step 4 — Implement `round_robin`
 
-`backend/cubist/tournament/runner.py`:
+`backend/darwin/tournament/runner.py`:
 ```python
 import asyncio
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Awaitable, Callable
 
-from cubist.engines.base import Engine
-from cubist.tournament.referee import GameResult, play_game
+from darwin.engines.base import Engine
+from darwin.tournament.referee import GameResult, play_game
 
 EventCb = Callable[[dict], Awaitable[None]] | None
 
@@ -230,8 +230,8 @@ async def round_robin(
 Test (`tests/test_runner.py`):
 ```python
 import pytest
-from cubist.engines.random_engine import RandomEngine
-from cubist.tournament.runner import round_robin
+from darwin.engines.random_engine import RandomEngine
+from darwin.tournament.runner import round_robin
 
 @pytest.mark.asyncio
 async def test_round_robin_4_engines():
@@ -244,12 +244,12 @@ async def test_round_robin_4_engines():
     assert sum(s.scores.values()) == expected_games  # 1 point per game
 ```
 
-### Step 5 — Anti-regression gate (45 min)
+### Step 5 — Anti-regression gate
 
-`backend/cubist/tournament/selection.py`:
+`backend/darwin/tournament/selection.py`:
 ```python
-from cubist.engines.base import Engine
-from cubist.tournament.runner import Standings
+from darwin.engines.base import Engine
+from darwin.tournament.runner import Standings
 
 
 def _h2h_score(games, a: str, b: str) -> tuple[float, int]:
@@ -285,9 +285,9 @@ def select_champion(
 Test (`tests/test_selection.py`):
 ```python
 from dataclasses import dataclass
-from cubist.tournament.runner import Standings
-from cubist.tournament.referee import GameResult
-from cubist.tournament.selection import select_champion
+from darwin.tournament.runner import Standings
+from darwin.tournament.referee import GameResult
+from darwin.tournament.selection import select_champion
 
 
 class FakeEngine:
@@ -306,11 +306,11 @@ def test_anti_regression_keeps_incumbent_when_h2h_lost():
     assert new is inc and promoted is False
 ```
 
-### Step 6 — `scripts/eval_match.py` (45 min)
+### Step 6 — `scripts/eval_match.py`
 
-CLI for the demo headline number. Takes `--white-module`, `--black-module`, `--n`. Plays N games (alternating colors), prints a results table. Use `cubist.engines.registry.load_engine` to resolve the engines.
+CLI for the demo headline number. Takes `--white-module`, `--black-module`, `--n`. Plays N games (alternating colors), prints a results table. Use `darwin.engines.registry.load_engine` to resolve the engines.
 
-### Step 7 — Open the PR (15 min)
+### Step 7 — Open the PR
 
 ```bash
 git add -A && git commit -m "feat: tournament referee + runner + Elo + selection"
@@ -322,7 +322,7 @@ gh pr create --title "Tournament" --body "Closes plan B."
 
 - [ ] All four test files pass: `uv run pytest tests/`.
 - [ ] `eval_match.py` runs a 4-game match between two `RandomEngine`s and prints a clean table.
-- [ ] PR open by **hour 7**, merged by **hour 9**.
+- [ ] PR opened, then merged after review.
 
 ## Integration points
 

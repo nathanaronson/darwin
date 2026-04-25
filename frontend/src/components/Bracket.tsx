@@ -18,7 +18,7 @@
  */
 
 import type {
-  CubistEvent,
+  DarwinEvent,
   GenerationStarted,
   BuilderCompleted,
   GameFinished,
@@ -27,7 +27,7 @@ import type {
 /** Props accepted by {@link Bracket}. */
 interface BracketProps {
   /** Full accumulated event log from {@link useEventStream}. */
-  events: CubistEvent[];
+  events: DarwinEvent[];
 }
 
 /**

@@ -22,7 +22,7 @@ to most expensive:
   4. **Static-source check at validate time** — same gates re-run
      against whatever's on disk, in case a hand-edited file in
      ``engines/generated/`` skipped the build path.
-  5. **Module load** via ``cubist.engines.registry.load_engine``.
+  5. **Module load** via ``darwin.engines.registry.load_engine``.
   6. **Smoke game** vs ``RandomEngine``. We reject any termination in
      ``REJECT_TERMINATIONS`` — not just ``error`` — so engines that
      return illegal moves or time out are dropped before they can
@@ -46,16 +46,16 @@ from pathlib import Path
 
 import chess
 
-from cubist.agents.strategist import Question
-from cubist.config import settings
-from cubist.llm import complete
+from darwin.agents.strategist import Question
+from darwin.config import settings
+from darwin.llm import complete
 
-logger = logging.getLogger("cubist.agents.builder")
+logger = logging.getLogger("darwin.agents.builder")
 
 PROMPT = (Path(__file__).parent / "prompts" / "builder_v1.md").read_text()
 
 # Builder output goes here. We do NOT import GENERATED_DIR from
-# cubist.engines.registry to avoid a circular dependency at module load
+# darwin.engines.registry to avoid a circular dependency at module load
 # time (registry is Person A's territory and may grow imports from us).
 GENERATED_DIR = Path(__file__).parent.parent / "engines" / "generated"
 
@@ -67,7 +67,7 @@ TOOL = {
     "name": "submit_engine",
     "description": (
         "Submit the new engine module as a single Python source string. "
-        "Must subclass cubist.engines.base.BaseLLMEngine, end with "
+        "Must subclass darwin.engines.base.BaseLLMEngine, end with "
         "`engine = YourEngineClass()`, and use only the allowed imports."
     ),
     "input_schema": {
@@ -183,7 +183,7 @@ def _check_hallucinated_chess_attrs(source: str) -> str | None:
     return None
 
 
-# Names of LLM-call helpers from cubist.llm. Catching either spelling
+# Names of LLM-call helpers from darwin.llm. Catching either spelling
 # (await complete_text(...) or await complete(...)) lets us detect any
 # engine that consults the model from inside select_move.
 _LLM_CALL_NAMES = frozenset({"complete", "complete_text"})
@@ -426,7 +426,7 @@ async def validate_engine(module_path: Path) -> tuple[bool, str | None]:
          gate from ``_static_check_source``. Catches hand-edited files
          in ``engines/generated/`` that bypassed ``build_engine``.
 
-      2. **Module load** via ``cubist.engines.registry.load_engine``.
+      2. **Module load** via ``darwin.engines.registry.load_engine``.
          This is a runtime check that the module imports, the
          ``engine`` symbol exists, and ``isinstance(engine, Engine)``.
 
@@ -453,9 +453,9 @@ async def validate_engine(module_path: Path) -> tuple[bool, str | None]:
 
     # Phase 2: module load (lazy imports so tests can run before A/B merge).
     try:
-        from cubist.engines.random_engine import RandomEngine
-        from cubist.engines.registry import load_engine
-        from cubist.tournament.referee import play_game
+        from darwin.engines.random_engine import RandomEngine
+        from darwin.engines.registry import load_engine
+        from darwin.tournament.referee import play_game
     except Exception as e:  # pragma: no cover — import-time failure
         logger.error("validate_engine import-deps failed err=%r", e)
         return False, f"import: {e!r}"

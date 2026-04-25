@@ -18,7 +18,7 @@
  */
 
 import type {
-  CubistEvent,
+  DarwinEvent,
   StrategistQuestion,
   BuilderCompleted,
 } from "../api/events";
@@ -26,7 +26,7 @@ import type {
 /** Props accepted by {@link StrategistFeed}. */
 interface StrategistFeedProps {
   /** Full accumulated event log from {@link useEventStream}. */
-  events: CubistEvent[];
+  events: DarwinEvent[];
 }
 
 /**

@@ -5,7 +5,7 @@ per game in the round-robin. Containers run in real OS-level parallel —
 no GIL ceiling — so a 20-game tournament that takes ~130 s locally
 finishes in ~10–20 s wall-clock.
 
-The remote function reuses ``cubist.tournament.referee.play_game`` for
+The remote function reuses ``darwin.tournament.referee.play_game`` for
 the actual chess loop so the local-vs-remote behavior is identical
 (same termination rules, same time budget, same fallback handling). It
 captures events into a list and returns them; the local round_robin
@@ -15,23 +15,23 @@ per-move during the tournament — a small UX trade for the wall-clock
 speedup. (Per-move streaming via ``modal.Queue`` is a follow-up.)
 
 The Modal app is deployed once via:
-    modal deploy backend/cubist/tournament/modal_runner.py
-And re-deployed whenever the cubist package changes.
+    modal deploy backend/darwin/tournament/modal_runner.py
+And re-deployed whenever the darwin package changes.
 """
 
 from __future__ import annotations
 
 import modal
 
-# Image: Debian slim + python-chess + the local cubist package. The
-# `cubist` source is baked into the image at deploy time so the remote
-# function can ``from cubist.tournament.referee import play_game``
+# Image: Debian slim + python-chess + the local darwin package. The
+# `darwin` source is baked into the image at deploy time so the remote
+# function can ``from darwin.tournament.referee import play_game``
 # without divergence from the local implementation.
 #
 # Stripped image: pure-code engines don't need the LLM SDKs
 # (google-genai, anthropic). Saves ~100 MB image weight and ~2 s
-# cold-start. cubist.config doesn't *import* those libs — only
-# cubist.llm does, and the tournament path doesn't touch llm.py.
+# cold-start. darwin.config doesn't *import* those libs — only
+# darwin.llm does, and the tournament path doesn't touch llm.py.
 image = (
     modal.Image.debian_slim(python_version="3.13")
     .pip_install(
@@ -40,10 +40,10 @@ image = (
         "pydantic",
         "pydantic-settings",
     )
-    .add_local_python_source("cubist", copy=True)
+    .add_local_python_source("darwin", copy=True)
 )
 
-app = modal.App("cubist-tournament", image=image)
+app = modal.App("darwin-tournament", image=image)
 
 # Shared event queue. Containers push every game.move / game.finished
 # event into this queue; the local round_robin process subscribes and
@@ -51,7 +51,7 @@ app = modal.App("cubist-tournament", image=image)
 # happen instead of batched at game-end. Named (not ephemeral) so the
 # local process can attach to the same queue without being inside an
 # ``app.run()`` context.
-events_queue = modal.Queue.from_name("cubist-events", create_if_missing=True)
+events_queue = modal.Queue.from_name("darwin-events", create_if_missing=True)
 
 
 @app.function(
@@ -68,10 +68,10 @@ events_queue = modal.Queue.from_name("cubist-events", create_if_missing=True)
     max_containers=40,
     # No idle containers by default — zero baseline cost. Toggle warm
     # pool on demand via:
-    #   modal app keep-warm cubist-tournament play_game_remote N
+    #   modal app keep-warm darwin-tournament play_game_remote N
     # or Modal dashboard, or the (planned) /api/modal/warm-up endpoint.
     min_containers=0,
-    # Memory snapshots checkpoint the container *after* `from cubist...`
+    # Memory snapshots checkpoint the container *after* `from darwin...`
     # imports complete, so cold starts skip Python init and import
     # resolution — typically 3-5s saved per container. This makes the
     # min_containers=0 default tolerable: first-game cold-start drops
@@ -107,13 +107,13 @@ async def play_game_remote(
     import sys
     import types
 
-    from cubist.tournament.referee import play_game
+    from darwin.tournament.referee import play_game
 
     def _load(src: str, name: str):
         # Unique module name per game so reimports across concurrent
         # games inside the same warmed container don't clash.
         mod_name = (
-            f"cubist_remote_engine_{name.replace('-', '_')}_{game_id}"
+            f"darwin_remote_engine_{name.replace('-', '_')}_{game_id}"
         )
         mod = types.ModuleType(mod_name)
         sys.modules[mod_name] = mod

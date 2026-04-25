@@ -31,7 +31,7 @@ adapt that idea):
 
 REQUIREMENTS
 
-  - Subclass `BaseLLMEngine` from `cubist.engines.base`. Builder-generated
+  - Subclass `BaseLLMEngine` from `darwin.engines.base`. Builder-generated
     engines may also implement the `Engine` Protocol directly, but
     subclassing is simpler.
   - The class `__init__` MUST call:
@@ -71,9 +71,9 @@ REQUIREMENTS
   - Allowed imports ONLY:
         - the Python standard library (random, math, time, asyncio, ...)
         - `chess`            (python-chess move generator + board)
-        - `cubist.config`    (settings)
-        - `cubist.engines.base`  (BaseLLMEngine, Engine)
-        - You do NOT need `cubist.llm` — the new contract forbids LLM calls
+        - `darwin.config`    (settings)
+        - `darwin.engines.base`  (BaseLLMEngine, Engine)
+        - You do NOT need `darwin.llm` — the new contract forbids LLM calls
           at play time.
     Anything else — including `subprocess`, `os.system`, `socket`,
     `eval`, `exec`, `importlib`, network libraries — is forbidden and
@@ -142,8 +142,8 @@ Walk through this list mentally before calling `submit_engine`:
   - [ ] No imports from outside the allowlist; no `subprocess`,
         `os.system`, `eval(`, `exec(`, `socket`, `urllib`, `requests`,
         `httpx`, `importlib`.
-  - [ ] No `from cubist import config as settings` (broken — aliases
-        the module). Use `from cubist.config import settings`.
+  - [ ] No `from darwin import config as settings` (broken — aliases
+        the module). Use `from darwin.config import settings`.
   - [ ] `select_move` always returns a legal move and never raises
         — wrap risky paths in try/except and fall back to
         `next(iter(board.legal_moves))`.
@@ -153,7 +153,7 @@ Walk through this list mentally before calling `submit_engine`:
 ```python
 import chess
 
-from cubist.engines.base import BaseLLMEngine
+from darwin.engines.base import BaseLLMEngine
 
 PIECE_VALUES = {{
     chess.PAWN: 100, chess.KNIGHT: 320, chess.BISHOP: 330,

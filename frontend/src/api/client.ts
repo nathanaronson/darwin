@@ -1,5 +1,5 @@
 /**
- * client.ts — REST and WebSocket client for the Cubist backend API.
+ * client.ts — REST and WebSocket client for the Darwin backend API.
  *
  * All requests are relative so Vite's dev-server proxy (vite.config.ts)
  * transparently forwards them to `http://127.0.0.1:8000` in development
@@ -49,7 +49,7 @@ export async function fetchGames(gen: number): Promise<unknown> {
 
 /**
  * Opens a WebSocket connection to the backend event bus and forwards every
- * incoming {@link CubistEvent} to the provided callback.
+ * incoming {@link DarwinEvent} to the provided callback.
  *
  * The caller is responsible for closing the returned WebSocket on cleanup
  * (e.g. from a React useEffect return value).
@@ -76,7 +76,7 @@ export function connectEvents(onEvent: (e: Envelope["event"]) => void): WebSocke
   };
 
   ws.onerror = (err) => {
-    console.error("[cubist] WebSocket error", err);
+    console.error("[darwin] WebSocket error", err);
   };
 
   return ws;

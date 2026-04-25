@@ -1,4 +1,4 @@
-# Cubist dev helper. Run `make` or `make help` to see targets.
+# Darwin dev helper. Run `make` or `make help` to see targets.
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
@@ -33,14 +33,14 @@ dev: ## Run backend + frontend together via honcho
 	honcho start
 
 backend: ## Run backend only (uvicorn --reload on :8000)
-	cd backend && uv run uvicorn cubist.api.server:app --host 0.0.0.0 --port 8000 \
-	  --reload --reload-exclude 'cubist/engines/generated/*' --reload-exclude '*.db'
+	cd backend && uv run uvicorn darwin.api.server:app --host 0.0.0.0 --port 8000 \
+	  --reload --reload-exclude 'darwin/engines/generated/*' --reload-exclude '*.db'
 
 frontend: ## Run frontend only (vite dev on :5173)
 	cd frontend && npm run dev
 
 run: ## Run one generation end-to-end from CLI (override N=<n>)
-	cd backend && uv run python -m cubist.orchestration.run --generations $(or $(N),1)
+	cd backend && uv run python -m darwin.orchestration.run --generations $(or $(N),1)
 
 replay: ## Replay persisted generations over the WS bus (GEN=<n> to pin one)
 	cd backend && uv run python ../scripts/replay.py $(if $(GEN),--gen $(GEN))
@@ -71,7 +71,7 @@ check: lint test ## Lint + tests (pre-PR gate)
 # ---- cleanup ----
 
 clean-db: ## Delete the SQLite DB (re-run `make seed` after)
-	rm -f backend/cubist.db backend/cubist.db-journal
+	rm -f backend/darwin.db backend/darwin.db-journal
 
 clean: ## Remove Python + tooling caches
 	find . -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache \) \

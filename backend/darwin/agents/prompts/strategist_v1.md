@@ -20,8 +20,8 @@ the 5 categories):
 For each question, give:
 
   - a concrete hypothesis a builder can implement in ~50 lines of Python
-    (no new dependencies, only stdlib + chess + cubist.engines.base +
-    cubist.llm)
+    (no new dependencies, only stdlib + chess + darwin.engines.base +
+    darwin.llm)
   - a one-sentence rationale grounded in the history (or first principles
     if history is empty)
 

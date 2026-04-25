@@ -19,10 +19,10 @@ from pathlib import Path
 from fastapi import APIRouter
 from sqlmodel import delete, select
 
-from cubist.storage.db import get_session
-from cubist.storage.models import EngineRow, GameRow, GenerationRow
+from darwin.storage.db import get_session
+from darwin.storage.models import EngineRow, GameRow, GenerationRow
 
-log = logging.getLogger("cubist.api")
+log = logging.getLogger("darwin.api")
 router = APIRouter()
 
 
@@ -61,7 +61,7 @@ async def run():
     are subscribed to. We do not wait for completion — a single
     generation can take minutes.
     """
-    from cubist.orchestration.generation import start_or_replace_generation_task
+    from darwin.orchestration.generation import start_or_replace_generation_task
 
     await start_or_replace_generation_task()
     return {"started": True}
@@ -77,7 +77,7 @@ async def stop():
     ``navigator.sendBeacon``) so closing/reloading the dashboard tab
     doesn't leave a generation churning the LLM in the background.
     """
-    from cubist.orchestration.generation import stop_current_generation_task
+    from darwin.orchestration.generation import stop_current_generation_task
 
     stopped = await stop_current_generation_task()
     return {"stopped": stopped}
@@ -96,11 +96,11 @@ async def clear_state():
     empty backend state.
 
     The baseline engine is NOT touched — it lives in
-    ``cubist.engines.baseline`` and is loaded directly by the
+    ``darwin.engines.baseline`` and is loaded directly by the
     orchestrator, not from the engines table.
     """
-    from cubist.api.websocket import bus
-    from cubist.orchestration.generation import stop_current_generation_task
+    from darwin.api.websocket import bus
+    from darwin.orchestration.generation import stop_current_generation_task
 
     stopped = await stop_current_generation_task()
 

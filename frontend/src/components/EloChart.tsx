@@ -31,10 +31,10 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import type { CubistEvent, GenerationFinished } from "../api/events";
+import type { DarwinEvent, GenerationFinished } from "../api/events";
 
 interface EloChartProps {
-  events: CubistEvent[];
+  events: DarwinEvent[];
 }
 
 interface EloPoint {

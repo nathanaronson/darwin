@@ -2,10 +2,10 @@ import asyncio
 
 import pytest
 
-from cubist.config import settings
-from cubist.engines.random_engine import RandomEngine
-from cubist.tournament.referee import GameResult
-from cubist.tournament.runner import round_robin
+from darwin.config import settings
+from darwin.engines.random_engine import RandomEngine
+from darwin.tournament.referee import GameResult
+from darwin.tournament.runner import round_robin
 
 
 @pytest.fixture(autouse=True)
@@ -47,7 +47,7 @@ async def test_round_robin_caps_in_flight_games(monkeypatch):
         current -= 1
         return GameResult(white.name, black.name, "1/2-1/2", "draw", "")
 
-    import cubist.tournament.runner as runner
+    import darwin.tournament.runner as runner
 
     monkeypatch.setattr(runner, "play_game", fake_play_game)
     monkeypatch.setattr(runner.settings, "max_parallel_games", 2)

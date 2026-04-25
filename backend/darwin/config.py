@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     player_model: str = "claude-sonnet-4-6"
     builder_model: str = "claude-sonnet-4-6"
 
-    database_url: str = "sqlite:///./cubist.db"
+    database_url: str = "sqlite:///./darwin.db"
 
     time_per_move_ms: int = 20_000
     games_per_pairing: int = 2
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # asyncio.gather (current behavior). "modal" dispatches each game
     # to a Modal container — real OS-level parallelism, no GIL, frees
     # this machine's CPU. Requires `modal token` to be configured and
-    # `modal deploy backend/cubist/tournament/modal_runner.py` to have
+    # `modal deploy backend/darwin/tournament/modal_runner.py` to have
     # been run at least once.
     tournament_backend: str = "local"
 

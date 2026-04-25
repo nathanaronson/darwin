@@ -3,8 +3,8 @@ import inspect
 import chess
 import pytest
 
-import cubist.engines.baseline as baseline
-from cubist.engines.baseline import engine
+import darwin.engines.baseline as baseline
+from darwin.engines.baseline import engine
 
 
 @pytest.mark.asyncio
@@ -31,6 +31,6 @@ async def test_baseline_prefers_winning_material():
 
 def test_baseline_has_no_llm_or_anthropic_dependency():
     source = inspect.getsource(baseline)
-    assert "cubist.llm" not in source
+    assert "darwin.llm" not in source
     assert "anthropic" not in source
     assert "complete_text" not in source

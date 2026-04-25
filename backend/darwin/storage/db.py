@@ -1,7 +1,7 @@
 """SQLite session helpers. Person E owns.
 
 The database URL is read from `Settings.database_url` (defaults to
-`sqlite:///./cubist.db` — a file next to the working directory).
+`sqlite:///./darwin.db` — a file next to the working directory).
 
 `init_db()` is idempotent and should be called once at process start
 (CLI runner, seed script, tests) before any `get_session()` usage.
@@ -11,7 +11,7 @@ The database URL is read from `Settings.database_url` (defaults to
 
 from sqlmodel import Session, SQLModel, create_engine
 
-from cubist.config import settings
+from darwin.config import settings
 
 _engine = create_engine(settings.database_url, echo=False)
 

@@ -14,16 +14,16 @@ Each engineer takes one plan and one branch. Read your own plan in full, then sk
 
 These three files define how the workstreams integrate. **Do not change them without paging the team.**
 
-- `backend/cubist/engines/base.py` — Engine Protocol
-- `backend/cubist/storage/models.py` — SQLite schema
-- `backend/cubist/api/websocket.py` + `frontend/src/api/events.ts` — WS event payloads
+- `backend/darwin/engines/base.py` — Engine Protocol
+- `backend/darwin/storage/models.py` — SQLite schema
+- `backend/darwin/api/websocket.py` + `frontend/src/api/events.ts` — WS event payloads
 
-## Merge order (deadlines from kickoff)
+## Merge order
 
-1. **Hour 6** — Person A merges `feat/engine-core`. Unblocks B and C.
-2. **Hour 9** — Person B merges `feat/tournament`. Unblocks E's full orchestration.
-3. **Hour 10** — Person C merges `feat/agents`. Unblocks E's real generation runs.
-4. **Hour 12** — Person E merges `feat/infra`. Unblocks D's switch from mocks to live.
-5. **Hour 16** — Person D merges `feat/frontend`. Demo-ready.
+1. Person A merges `feat/engine-core`. Unblocks B and C.
+2. Person B merges `feat/tournament`. Unblocks E's full orchestration.
+3. Person C merges `feat/agents`. Unblocks E's real generation runs.
+4. Person E merges `feat/infra`. Unblocks D's switch from mocks to live.
+5. Person D merges `feat/frontend`. Demo-ready.
 
-Hours 16–24 are eval, polish, demo rehearsal, sleep.
+After D merges: eval, polish, demo rehearsal.

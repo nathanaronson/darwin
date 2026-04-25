@@ -1,15 +1,15 @@
 # Follow-up 3 — Champion resume in `run_generation_task`
 
-**Owner:** TBD  •  **Branch:** `followup/champion-resume`  •  **Est:** 2–3 hours
+**Owner:** TBD  •  **Branch:** `followup/champion-resume`
 
 ## Why
 
-`backend/cubist/orchestration/generation.py::run_generation_task` still
+`backend/darwin/orchestration/generation.py::run_generation_task` still
 hard-codes baseline as the champion for every API-triggered run:
 
 ```python
 async def run_generation_task() -> None:
-    from cubist.engines.baseline import engine as baseline
+    from darwin.engines.baseline import engine as baseline
     ...
     await run_generation(baseline, next_number)
 ```
@@ -19,7 +19,7 @@ So if gen 2 promotes `gen2-evaluation-f00df6`, and you hit
 restarts from baseline-v0 instead of continuing the lineage. The whole
 "self-improving" premise breaks after one generation.
 
-The CLI path (`cubist.orchestration.run.main`) threads the champion
+The CLI path (`darwin.orchestration.run.main`) threads the champion
 forward correctly. The API path does not.
 
 ## What to do
@@ -37,7 +37,7 @@ with get_session() as s:
     ).first()
     if last_gen is None:
         # First run — start from baseline
-        from cubist.engines.baseline import engine as champion
+        from darwin.engines.baseline import engine as champion
     else:
         row = s.exec(
             select(EngineRow).where(EngineRow.name == last_gen.champion_after)
@@ -52,10 +52,10 @@ await run_generation(champion, next_number)
 
 `EngineRow.code_path` currently holds two shapes:
 
-- Baseline: dotted module name `cubist.engines.baseline`
-- Generated engines: filesystem path `backend/cubist/engines/generated/gen2_*.py`
+- Baseline: dotted module name `darwin.engines.baseline`
+- Generated engines: filesystem path `backend/darwin/engines/generated/gen2_*.py`
 
-Ensure `cubist.engines.registry.load_engine(...)` accepts either form.
+Ensure `darwin.engines.registry.load_engine(...)` accepts either form.
 If it doesn't today, add a branch: if the string starts with `/` or
 ends with `.py`, treat as file path; otherwise treat as dotted module.
 
@@ -75,8 +75,8 @@ the **absolute** file path, not a relative one — otherwise step 2's
 
 ## Files to touch
 
-- `backend/cubist/orchestration/generation.py` (the loader branch)
-- `backend/cubist/engines/registry.py` (if `load_engine` needs broadening)
+- `backend/darwin/orchestration/generation.py` (the loader branch)
+- `backend/darwin/engines/registry.py` (if `load_engine` needs broadening)
 - `backend/tests/test_orchestration.py` (new file if needed)
 
 ## Do **not** touch

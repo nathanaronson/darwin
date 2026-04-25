@@ -6,7 +6,7 @@ builder validator, and orchestration layer.
 ## Contract
 
 Every runnable engine exposes a top-level `engine` object that satisfies
-`cubist.engines.base.Engine`:
+`darwin.engines.base.Engine`:
 
 ```python
 name: str
@@ -22,25 +22,25 @@ move, so engine implementations should always have a legal fallback.
 
 ## Built-in Engines
 
-- `cubist.engines.baseline`: generation-0 local chess engine. It does not call
+- `darwin.engines.baseline`: generation-0 local chess engine. It does not call
   an LLM or any external API. It uses a deterministic two-ply alpha-beta search
   with terminal detection, material, and mobility heuristics.
-- `cubist.engines.random_engine`: no-API random legal move engine for tests,
+- `darwin.engines.random_engine`: no-API random legal move engine for tests,
   tournament smoke checks, and builder validation.
 
 ## Loading Engines
 
-Use `cubist.engines.registry.load_engine` for both built-ins and generated
+Use `darwin.engines.registry.load_engine` for both built-ins and generated
 candidate files:
 
 ```python
-from cubist.engines.registry import load_engine
+from darwin.engines.registry import load_engine
 
-baseline = load_engine("cubist.engines.baseline")
-candidate = load_engine("backend/cubist/engines/generated/gen1_prompt.py")
+baseline = load_engine("darwin.engines.baseline")
+candidate = load_engine("backend/darwin/engines/generated/gen1_prompt.py")
 ```
 
-Generated candidate modules are expected under `cubist/engines/generated/`.
+Generated candidate modules are expected under `darwin/engines/generated/`.
 `list_generated()` returns the sorted `*.py` files in that directory.
 
 ## Verification

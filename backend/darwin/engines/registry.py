@@ -5,7 +5,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
-from cubist.engines.base import Engine
+from darwin.engines.base import Engine
 
 GENERATED_DIR = Path(__file__).parent / "generated"
 

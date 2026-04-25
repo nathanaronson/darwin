@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(pdflatex -interaction=nonstopmode proposal.tex)",
-      "Bash(rm -f proposal.aux proposal.log proposal.out proposal.toc)"
-    ]
-  }
-}

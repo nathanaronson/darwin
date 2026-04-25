@@ -5,9 +5,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
-from cubist.engines.baseline import BaselineEngine  # noqa: E402,F401
-from cubist.storage.db import get_session, init_db  # noqa: E402
-from cubist.storage.models import EngineRow  # noqa: E402
+from darwin.engines.baseline import BaselineEngine  # noqa: E402,F401
+from darwin.storage.db import get_session, init_db  # noqa: E402
+from darwin.storage.models import EngineRow  # noqa: E402
 from sqlmodel import select  # noqa: E402
 
 
@@ -24,7 +24,7 @@ def main() -> None:
             name="baseline-v0",
             generation=0,
             parent_name=None,
-            code_path="cubist.engines.baseline",
+            code_path="darwin.engines.baseline",
         )
         s.add(row)
         s.commit()

@@ -16,8 +16,8 @@ __pycache__/
 *.db-journal
 
 # Generated engines (kept out of git; rebuilt each run)
-backend/cubist/engines/generated/*
-!backend/cubist/engines/generated/.gitkeep
+backend/darwin/engines/generated/*
+!backend/darwin/engines/generated/.gitkeep
 
 # Node
 node_modules/
@@ -31,6 +31,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+.claude/
 
 # Logs
 *.log

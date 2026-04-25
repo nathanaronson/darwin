@@ -15,13 +15,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from cubist.config import settings  # noqa: E402
-from cubist.engines.base import Engine  # noqa: E402
-from cubist.engines.random_engine import RandomEngine  # noqa: E402
-from cubist.engines.registry import load_engine  # noqa: E402
-from cubist.tournament.referee import GameResult, play_game  # noqa: E402
+from darwin.config import settings  # noqa: E402
+from darwin.engines.base import Engine  # noqa: E402
+from darwin.engines.random_engine import RandomEngine  # noqa: E402
+from darwin.engines.registry import load_engine  # noqa: E402
+from darwin.tournament.referee import GameResult, play_game  # noqa: E402
 
-RANDOM_REFS = {"random", "random_engine", "cubist.engines.random_engine"}
+RANDOM_REFS = {"random", "random_engine", "darwin.engines.random_engine"}
 
 
 def _load_module_engine(module_ref: str) -> Engine:

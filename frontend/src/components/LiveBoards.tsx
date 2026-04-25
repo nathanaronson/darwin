@@ -21,10 +21,10 @@
 
 import { useMemo } from "react";
 import { Chessboard } from "react-chessboard";
-import type { CubistEvent, GameMove, GameFinished } from "../api/events";
+import type { DarwinEvent, GameMove, GameFinished } from "../api/events";
 
 interface LiveBoardsProps {
-  events: CubistEvent[];
+  events: DarwinEvent[];
 }
 
 // Max number of boards rendered simultaneously. With games_per_pairing=2

@@ -1,6 +1,6 @@
 # Follow-up 1 — Tournament concurrency + referee observability
 
-**Owner:** TBD  •  **Branch:** `followup/tournament-concurrency`  •  **Est:** 3–5 hours
+**Owner:** TBD  •  **Branch:** `followup/tournament-concurrency`
 
 ## Why
 
@@ -20,7 +20,7 @@ timeout.
 
 ### 1. Gate parallelism at the tournament level
 
-`backend/cubist/tournament/runner.py` currently does one big
+`backend/darwin/tournament/runner.py` currently does one big
 `asyncio.gather(*pairing_coros)`. Add a semaphore so at most
 `settings.max_parallel_games` run at a time (default **2**, tunable in
 `.env`). The tournament still takes the same wall-clock time on a fast
@@ -62,13 +62,13 @@ magic number. Either justify it in a comment or make it configurable.
 
 ## Files to touch
 
-- `backend/cubist/config.py` (new setting)
-- `backend/cubist/tournament/runner.py` (semaphore)
-- `backend/cubist/tournament/referee.py` (error logging / PGN annotation)
+- `backend/darwin/config.py` (new setting)
+- `backend/darwin/tournament/runner.py` (semaphore)
+- `backend/darwin/tournament/referee.py` (error logging / PGN annotation)
 - `backend/tests/test_runner.py` (new test)
 - `.env.example` (document the new knob)
 
 ## Do **not** touch
 
-- `backend/cubist/api/websocket.py` event shapes (frozen contract).
+- `backend/darwin/api/websocket.py` event shapes (frozen contract).
 - The `Engine` Protocol in `engines/base.py` (frozen).

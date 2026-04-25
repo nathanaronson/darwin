@@ -1,4 +1,4 @@
-// FROZEN CONTRACT — mirror of backend/cubist/api/websocket.py.
+// FROZEN CONTRACT — mirror of backend/darwin/api/websocket.py.
 // Do not change without team sync; both files must stay aligned.
 
 export type GenerationStarted = {
@@ -70,7 +70,7 @@ export type StateCleared = {
   type: "state.cleared";
 };
 
-export type CubistEvent =
+export type DarwinEvent =
   | GenerationStarted
   | StrategistQuestion
   | BuilderCompleted
@@ -80,4 +80,4 @@ export type CubistEvent =
   | GenerationCancelled
   | StateCleared;
 
-export type Envelope = { event: CubistEvent };
+export type Envelope = { event: DarwinEvent };

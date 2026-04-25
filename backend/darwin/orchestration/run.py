@@ -1,7 +1,7 @@
 """CLI entrypoint: run N generations end-to-end.
 
 Usage:
-    uv run python -m cubist.orchestration.run --generations 3
+    uv run python -m darwin.orchestration.run --generations 3
 
 Each generation runs the full loop: strategist -> 2 builders -> validator ->
 round-robin tournament -> anti-regression selection -> DB persist -> WS emit.
@@ -13,9 +13,9 @@ generation is already persisted.
 import argparse
 import asyncio
 
-from cubist.engines.baseline import engine as baseline
-from cubist.orchestration.generation import run_generation
-from cubist.storage.db import init_db
+from darwin.engines.baseline import engine as baseline
+from darwin.orchestration.generation import run_generation
+from darwin.storage.db import init_db
 
 
 async def main(generations: int) -> None:
@@ -28,7 +28,7 @@ async def main(generations: int) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run N generations of Cubist.")
+    parser = argparse.ArgumentParser(description="Run N generations of Darwin.")
     parser.add_argument(
         "--generations",
         type=int,

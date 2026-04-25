@@ -16,11 +16,11 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Awaitable, Callable
 
-from cubist.config import settings
-from cubist.engines.base import Engine
-from cubist.tournament.referee import GameResult, play_game
+from darwin.config import settings
+from darwin.engines.base import Engine
+from darwin.tournament.referee import GameResult, play_game
 
-log = logging.getLogger("cubist.tournament.runner")
+log = logging.getLogger("darwin.tournament.runner")
 
 EventCb = Callable[[dict], Awaitable[None]] | None
 
@@ -39,7 +39,7 @@ async def warm_modal_pool(n: int = 4) -> None:
     try:
         import modal
         f = modal.Function.from_name(
-            "cubist-tournament", "play_game_remote"
+            "darwin-tournament", "play_game_remote"
         )
         await f.update_autoscaler.aio(min_containers=n)
         log.info("modal warm-pool set to min_containers=%d", n)
@@ -56,7 +56,7 @@ async def cool_modal_pool() -> None:
     try:
         import modal
         f = modal.Function.from_name(
-            "cubist-tournament", "play_game_remote"
+            "darwin-tournament", "play_game_remote"
         )
         await f.update_autoscaler.aio(min_containers=0)
         log.info("modal warm-pool cooled (min_containers=0)")
@@ -137,10 +137,10 @@ async def _round_robin_modal(
     # only give us un-hydrated references because the local process
     # isn't inside an ``app.run()`` context.
     play_game_remote = modal.Function.from_name(
-        "cubist-tournament", "play_game_remote"
+        "darwin-tournament", "play_game_remote"
     )
     events_queue = modal.Queue.from_name(
-        "cubist-events", create_if_missing=True
+        "darwin-events", create_if_missing=True
     )
 
     # Drain any stale events from a previous run (orphaned by cancel,

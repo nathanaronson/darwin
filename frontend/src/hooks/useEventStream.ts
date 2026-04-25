@@ -1,5 +1,5 @@
 /**
- * useEventStream.ts — React hook that provides a unified CubistEvent log.
+ * useEventStream.ts — React hook that provides a unified DarwinEvent log.
  *
  * Transparently switches between two event sources:
  *   - **Mock mode** (`?mock` in the URL): drives the UI from {@link startMockStream}
@@ -17,27 +17,27 @@
 import { useEffect, useState } from "react";
 import { connectEvents } from "../api/client";
 import { startMockStream } from "./mockEvents";
-import type { CubistEvent } from "../api/events";
+import type { DarwinEvent } from "../api/events";
 
-const STORAGE_KEY = "cubist.events.v1";
+const STORAGE_KEY = "darwin.events.v1";
 
 /** Read the persisted event log from localStorage. Tolerant of corruption
  *  — if anything is off (missing, not JSON, not an array) we treat it as
  *  empty and let the live WS catch us up.
  */
-function loadPersisted(): CubistEvent[] {
+function loadPersisted(): DarwinEvent[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as CubistEvent[]) : [];
+    return Array.isArray(parsed) ? (parsed as DarwinEvent[]) : [];
   } catch {
     return [];
   }
 }
 
 /**
- * Accumulates all {@link CubistEvent}s received since the component mounted.
+ * Accumulates all {@link DarwinEvent}s received since the component mounted.
  *
  * Activates mock mode when the URL contains `?mock` (any value); otherwise
  * connects to the live WebSocket endpoint proxied through Vite at `/ws`.
@@ -49,18 +49,18 @@ function loadPersisted(): CubistEvent[] {
  *
  * @returns read-only, ever-growing array of events in arrival order
  */
-export function useEventStream(): CubistEvent[] {
+export function useEventStream(): DarwinEvent[] {
   // Mock mode is volatile by design (dev demo flow rebuilds from scratch
   // every reload). Live mode rehydrates from localStorage.
   const useMock =
     typeof location !== "undefined" &&
     new URLSearchParams(location.search).has("mock");
-  const [events, setEvents] = useState<CubistEvent[]>(() =>
+  const [events, setEvents] = useState<DarwinEvent[]>(() =>
     useMock ? [] : loadPersisted(),
   );
 
   useEffect(() => {
-    const persist = (next: CubistEvent[]) => {
+    const persist = (next: DarwinEvent[]) => {
       if (useMock) return;
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -75,7 +75,7 @@ export function useEventStream(): CubistEvent[] {
     // and we should drop everything we've accumulated so the dashboard
     // matches the now-empty server state. We swallow the event itself
     // (don't append it) since downstream panels don't need to render it.
-    const push = (e: CubistEvent) => {
+    const push = (e: DarwinEvent) => {
       if (e.type === "state.cleared") {
         setEvents([]);
         persist([]);

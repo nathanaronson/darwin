@@ -2,9 +2,9 @@ import random
 
 import chess
 
-from cubist.tournament.referee import GameResult
-from cubist.tournament.runner import Standings
-from cubist.tournament.selection import select_champion, select_top_n
+from darwin.tournament.referee import GameResult
+from darwin.tournament.runner import Standings
+from darwin.tournament.selection import select_champion, select_top_n
 
 
 class FakeEngine:
@@ -78,9 +78,26 @@ def test_select_top_n_returns_ranked_list_of_size_n():
     a = FakeEngine("a")
     b = FakeEngine("b")
     c = FakeEngine("c")
+    # Each engine plays the same number of games (round-robin), so
+    # ranking by win rate matches ranking by raw score. Scores below
+    # come out to {inc:1, a:4, b:2, c:3}; rates are inc:1/6, a:4/6,
+    # b:2/6, c:3/6 — same ordering.
+    games = [
+        GameResult("a", "inc", "1-0", "checkmate", ""),
+        GameResult("a", "b", "1-0", "checkmate", ""),
+        GameResult("a", "c", "1-0", "checkmate", ""),
+        GameResult("inc", "a", "0-1", "checkmate", ""),
+        GameResult("c", "a", "0-1", "checkmate", ""),
+        GameResult("c", "b", "1-0", "checkmate", ""),
+        GameResult("c", "inc", "1-0", "checkmate", ""),
+        GameResult("b", "c", "0-1", "checkmate", ""),
+        GameResult("b", "inc", "1-0", "checkmate", ""),
+        GameResult("inc", "b", "0-1", "checkmate", ""),
+        GameResult("inc", "c", "1-0", "checkmate", ""),
+    ]
     standings = Standings(
         scores={"inc": 1.0, "a": 4.0, "b": 2.0, "c": 3.0},
-        games=[],
+        games=games,
     )
 
     top = select_top_n(standings, incumbent, [a, b, c], n=2)
@@ -91,7 +108,10 @@ def test_select_top_n_returns_ranked_list_of_size_n():
 def test_select_top_n_n_one_returns_just_winner():
     incumbent = FakeEngine("inc")
     a = FakeEngine("a")
-    standings = Standings(scores={"inc": 0.0, "a": 1.0}, games=[])
+    games = [
+        GameResult("a", "inc", "1-0", "checkmate", ""),
+    ]
+    standings = Standings(scores={"inc": 0.0, "a": 1.0}, games=games)
 
     top = select_top_n(standings, incumbent, [a], n=1)
 

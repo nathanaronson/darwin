@@ -2,7 +2,7 @@ import asyncio
 
 import chess
 
-from cubist.engines.baseline import engine
+from darwin.engines.baseline import engine
 
 
 async def main() -> None:

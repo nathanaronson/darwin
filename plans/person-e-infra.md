@@ -9,14 +9,14 @@ You're the integrator. You own the database, the API, the WebSocket bus, the top
 1. `docs/proposal.pdf` — the whole document, but especially §11 (Demo Plan).
 2. `plans/README.md` — merge order.
 3. All four other plans — you integrate against them, so know their shapes.
-4. `backend/cubist/storage/models.py` — the **frozen** schema you persist to.
-5. `backend/cubist/api/websocket.py` — the **frozen** event payloads you broadcast.
-6. `backend/cubist/llm.py` — the shared Anthropic helper (you own this; basic version already works).
+4. `backend/darwin/storage/models.py` — the **frozen** schema you persist to.
+5. `backend/darwin/api/websocket.py` — the **frozen** event payloads you broadcast.
+6. `backend/darwin/llm.py` — the shared Anthropic helper (you own this; basic version already works).
 
 ## Files you own
 
 ```
-backend/cubist/
+backend/darwin/
 ├── config.py                  # done
 ├── llm.py                     # basic version done; you can extend (caching, batching)
 ├── storage/
@@ -47,18 +47,18 @@ Procfile                       # done
 
 ## Step-by-step (do these in order)
 
-### Step 1 — Branch and verify (15 min)
+### Step 1 — Branch and verify
 
 ```bash
 git checkout -b feat/infra
 cd backend && uv sync
-uv run python -c "from cubist.api.server import app; print('ok')"
-uv run uvicorn cubist.api.server:app --reload  # check /api/health in browser
+uv run python -c "from darwin.api.server import app; print('ok')"
+uv run uvicorn darwin.api.server:app --reload  # check /api/health in browser
 ```
 
-### Step 2 — EventBus + WebSocket route (1 hour)
+### Step 2 — EventBus + WebSocket route
 
-Add to `backend/cubist/api/websocket.py` (don't edit the frozen types — append):
+Add to `backend/darwin/api/websocket.py` (don't edit the frozen types — append):
 
 ```python
 import asyncio
@@ -89,13 +89,13 @@ class EventBus:
 bus = EventBus()
 ```
 
-Add to `backend/cubist/api/server.py`:
+Add to `backend/darwin/api/server.py`:
 ```python
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from cubist.api.websocket import bus
-from cubist.api.routes import router
+from darwin.api.websocket import bus
+from darwin.api.routes import router
 
-app = FastAPI(title="Cubist")
+app = FastAPI(title="Darwin")
 app.include_router(router, prefix="/api")
 
 
@@ -118,16 +118,16 @@ async def ws_endpoint(websocket: WebSocket) -> None:
         bus.unsubscribe(q)
 ```
 
-### Step 3 — REST routes (45 min)
+### Step 3 — REST routes
 
-`backend/cubist/api/routes.py`:
+`backend/darwin/api/routes.py`:
 ```python
 import asyncio
 from fastapi import APIRouter
 from sqlmodel import select
 
-from cubist.storage.db import get_session
-from cubist.storage.models import EngineRow, GameRow, GenerationRow
+from darwin.storage.db import get_session
+from darwin.storage.models import EngineRow, GameRow, GenerationRow
 
 router = APIRouter()
 
@@ -155,12 +155,12 @@ def list_games(gen: int | None = None):
 
 @router.post("/generations/run")
 async def run():
-    from cubist.orchestration.generation import run_generation_task
+    from darwin.orchestration.generation import run_generation_task
     asyncio.create_task(run_generation_task())
     return {"started": True}
 ```
 
-### Step 4 — Seed script (30 min)
+### Step 4 — Seed script
 
 `scripts/seed_baseline.py`:
 ```python
@@ -169,9 +169,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
-from cubist.engines.baseline import BaselineEngine  # noqa
-from cubist.storage.db import get_session, init_db
-from cubist.storage.models import EngineRow
+from darwin.engines.baseline import BaselineEngine  # noqa
+from darwin.storage.db import get_session, init_db
+from darwin.storage.models import EngineRow
 from sqlmodel import select
 
 
@@ -182,7 +182,7 @@ def main() -> None:
         if existing:
             print("baseline already seeded:", existing.name); return
         row = EngineRow(name="baseline-v0", generation=0,
-                        parent_name=None, code_path="cubist.engines.baseline")
+                        parent_name=None, code_path="darwin.engines.baseline")
         s.add(row); s.commit()
         print("seeded baseline-v0")
 
@@ -191,24 +191,24 @@ if __name__ == "__main__":
     main()
 ```
 
-### Step 5 — Orchestration with fakes (1 hour, day-one)
+### Step 5 — Orchestration with fakes
 
-The first version of `generation.py` runs against fakes so you can ship the whole loop before A/B/C land. Use Person C's stubs (they push them within 30 min).
+The first version of `generation.py` runs against fakes so you can ship the whole loop before A/B/C land. Use Person C's stubs (they push them early).
 
-`backend/cubist/orchestration/generation.py`:
+`backend/darwin/orchestration/generation.py`:
 ```python
 import json
 
-from cubist.agents.builder import build_engine, validate_engine
-from cubist.agents.strategist import propose_questions
-from cubist.api.websocket import bus
-from cubist.config import settings
-from cubist.engines.base import Engine
-from cubist.engines.registry import load_engine
-from cubist.storage.db import get_session
-from cubist.storage.models import EngineRow, GameRow, GenerationRow
-from cubist.tournament.runner import round_robin
-from cubist.tournament.selection import select_champion
+from darwin.agents.builder import build_engine, validate_engine
+from darwin.agents.strategist import propose_questions
+from darwin.api.websocket import bus
+from darwin.config import settings
+from darwin.engines.base import Engine
+from darwin.engines.registry import load_engine
+from darwin.storage.db import get_session
+from darwin.storage.models import EngineRow, GameRow, GenerationRow
+from darwin.tournament.runner import round_robin
+from darwin.tournament.selection import select_champion
 
 
 def _read_source(engine: Engine) -> str:
@@ -272,20 +272,20 @@ async def run_generation(champion: Engine, generation_number: int) -> Engine:
 async def run_generation_task() -> None:
     """Triggered by the API. Loads current champion from DB, runs one generation."""
     # TODO: load champion from DB; for now, baseline
-    from cubist.engines.baseline import engine as baseline
+    from darwin.engines.baseline import engine as baseline
     await run_generation(baseline, 1)
 ```
 
-### Step 6 — CLI runner (30 min)
+### Step 6 — CLI runner
 
-`backend/cubist/orchestration/run.py`:
+`backend/darwin/orchestration/run.py`:
 ```python
 import argparse
 import asyncio
 
-from cubist.engines.baseline import engine as baseline
-from cubist.orchestration.generation import run_generation
-from cubist.storage.db import init_db
+from darwin.engines.baseline import engine as baseline
+from darwin.orchestration.generation import run_generation
+from darwin.storage.db import init_db
 
 
 async def main(generations: int) -> None:
@@ -303,22 +303,22 @@ if __name__ == "__main__":
     asyncio.run(main(args.generations))
 ```
 
-### Step 7 — End-to-end demo run (2 hours, after A/B/C merge)
+### Step 7 — End-to-end demo run (after A/B/C merge)
 
 ```bash
 uv run python scripts/seed_baseline.py
 honcho start  # runs backend + frontend together
 # in another terminal:
-uv run python -m cubist.orchestration.run --generations 1
+uv run python -m darwin.orchestration.run --generations 1
 ```
 
 Verify: dashboard shows the full loop streaming live.
 
-### Step 8 — Replay mode for demo safety (1 hour, hour 21)
+### Step 8 — Replay mode for demo safety
 
 After a clean generation completes, snapshot the DB. Add `scripts/replay.py` that reads `GameRow`/`GenerationRow` and re-emits the WS events with realistic delays. This is your insurance against demo-day API flakes — **build this before demo prep starts**.
 
-### Step 9 — Open the PR (15 min)
+### Step 9 — Open the PR
 
 ```bash
 git add -A && git commit -m "feat: API + WS bus + orchestration + seed/replay scripts"
@@ -333,14 +333,14 @@ gh pr create --title "Infra + orchestration" --body "Closes plan E."
 - [ ] One full generation completes via `run.py` and persists to DB.
 - [ ] `honcho start` brings up backend + frontend with WS events flowing.
 - [ ] Replay mode works without API access (demo insurance).
-- [ ] PR open by **hour 10**, merged by **hour 12**.
+- [ ] PR opened, then merged after review.
 
 ## Integration points
 
 - **Person A** provides `BaselineEngine`, `Engine` Protocol, `load_engine`. You instantiate baseline at seed time.
 - **Person B** provides `round_robin`, `select_champion`, `play_game`. Pass `bus.emit` as `on_event`.
-- **Person C** provides `propose_questions`, `build_engine`, `validate_engine`. They ship stubs in 30 min; you can wire end-to-end immediately.
-- **Person D** consumes `/ws`. Validate event payloads against their `events.ts` mirror at hour 1.
+- **Person C** provides `propose_questions`, `build_engine`, `validate_engine`. They ship stubs early; you can wire end-to-end immediately.
+- **Person D** consumes `/ws`. Validate event payloads against their `events.ts` mirror as soon as you start.
 
 ## Watch out for
 

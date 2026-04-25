@@ -1,6 +1,6 @@
 # Follow-up 4 — Frontend: live-board streaming + termination badges
 
-**Owner:** TBD  •  **Branch:** `followup/frontend-polish`  •  **Est:** 3–4 hours
+**Owner:** TBD  •  **Branch:** `followup/frontend-polish`
 
 ## Why
 
@@ -52,7 +52,7 @@ game in it ended on `time`, `error`, or `illegal_move`.
 New helper in `GenerationTimeline.tsx`:
 
 ```ts
-function terminationSummary(events: CubistEvent[], gen: number): string {
+function terminationSummary(events: DarwinEvent[], gen: number): string {
   const finishes = events.filter(
     (e): e is GameFinished =>
       e.type === "game.finished" && /* filter by gen */ true

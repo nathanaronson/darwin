@@ -1,4 +1,4 @@
-"""Tests for cubist.orchestration.generation.run_generation_task."""
+"""Tests for darwin.orchestration.generation.run_generation_task."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -6,7 +6,7 @@ from datetime import datetime
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
-from cubist.storage.models import EngineRow, GenerationRow
+from darwin.storage.models import EngineRow, GenerationRow
 
 
 class FakeEngine:
@@ -23,7 +23,7 @@ class FakeEngine:
 def mem_db(monkeypatch):
     engine = create_engine("sqlite:///:memory:")
     SQLModel.metadata.create_all(engine)
-    monkeypatch.setattr("cubist.storage.db._engine", engine)
+    monkeypatch.setattr("darwin.storage.db._engine", engine)
     return engine
 
 
@@ -51,7 +51,7 @@ async def test_run_generation_task_resumes_from_last_champion(mem_db, monkeypatc
 
     fake_champion = FakeEngine(gen1_winner)
     monkeypatch.setattr(
-        "cubist.orchestration.generation.load_engine",
+        "darwin.orchestration.generation.load_engine",
         lambda path: fake_champion,
     )
 
@@ -63,11 +63,11 @@ async def test_run_generation_task_resumes_from_last_champion(mem_db, monkeypatc
         return incumbents
 
     monkeypatch.setattr(
-        "cubist.orchestration.generation.run_generation",
+        "darwin.orchestration.generation.run_generation",
         fake_run_generation,
     )
 
-    from cubist.orchestration.generation import run_generation_task
+    from darwin.orchestration.generation import run_generation_task
 
     await run_generation_task()
 
@@ -86,11 +86,11 @@ async def test_run_generation_task_first_run_uses_baseline(mem_db, monkeypatch):
         return incumbents
 
     monkeypatch.setattr(
-        "cubist.orchestration.generation.run_generation",
+        "darwin.orchestration.generation.run_generation",
         fake_run_generation,
     )
 
-    from cubist.orchestration.generation import run_generation_task
+    from darwin.orchestration.generation import run_generation_task
 
     await run_generation_task()
 

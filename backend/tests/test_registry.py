@@ -2,22 +2,22 @@ import tempfile
 
 import pytest
 
-from cubist.engines.registry import load_engine
+from darwin.engines.registry import load_engine
 
 
 def test_loads_baseline_by_dotted_path():
-    eng = load_engine("cubist.engines.baseline")
+    eng = load_engine("darwin.engines.baseline")
     assert eng.name == "baseline-v0"
 
 
 def test_loads_random_by_dotted_path():
-    eng = load_engine("cubist.engines.random_engine")
+    eng = load_engine("darwin.engines.random_engine")
     assert eng.name == "random"
 
 
 def test_loads_from_file():
     src = """
-from cubist.engines.random_engine import RandomEngine
+from darwin.engines.random_engine import RandomEngine
 engine = RandomEngine()
 """
     with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:

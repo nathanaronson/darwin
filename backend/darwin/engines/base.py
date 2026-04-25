@@ -1,6 +1,6 @@
 """FROZEN CONTRACT — do not change without team sync.
 
-Every engine in Cubist (baseline, candidate, champion) conforms to the Engine
+Every engine in Darwin (baseline, candidate, champion) conforms to the Engine
 Protocol so the tournament runner is engine-agnostic. Builder agents emit
 Python modules whose top-level `engine` symbol satisfies this Protocol.
 """

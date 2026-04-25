@@ -3,8 +3,8 @@ import logging
 
 import chess
 
-from cubist.engines.random_engine import RandomEngine
-from cubist.tournament.referee import play_game
+from darwin.engines.random_engine import RandomEngine
+from darwin.tournament.referee import play_game
 
 
 class IllegalEngine:
@@ -58,7 +58,7 @@ def test_error_path_logs_exception_and_annotates_pgn(caplog):
     black = RandomEngine(seed=1)
     black.name = "black"
 
-    with caplog.at_level(logging.WARNING, logger="cubist.tournament.referee"):
+    with caplog.at_level(logging.WARNING, logger="darwin.tournament.referee"):
         result = asyncio.run(play_game(ErrorEngine(), black, 1000))
 
     assert result.result == "0-1"

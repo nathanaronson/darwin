@@ -10,23 +10,23 @@ import json
 import logging
 from datetime import datetime
 
-from cubist.agents.builder import build_engine, validate_engine
-from cubist.agents.strategist import propose_questions
-from cubist.api.websocket import bus
-from cubist.config import settings
-from cubist.engines.base import Engine
-from cubist.engines.registry import load_engine
-from cubist.storage.db import get_session
-from cubist.storage.models import EngineRow, GameRow, GenerationRow
-from cubist.tournament.elo import update_elo
-from cubist.tournament.runner import (
+from darwin.agents.builder import build_engine, validate_engine
+from darwin.agents.strategist import propose_questions
+from darwin.api.websocket import bus
+from darwin.config import settings
+from darwin.engines.base import Engine
+from darwin.engines.registry import load_engine
+from darwin.storage.db import get_session
+from darwin.storage.models import EngineRow, GameRow, GenerationRow
+from darwin.tournament.elo import update_elo
+from darwin.tournament.runner import (
     cool_modal_pool,
     round_robin,
     warm_modal_pool,
 )
-from cubist.tournament.selection import select_top_n
+from darwin.tournament.selection import select_top_n
 
-log = logging.getLogger("cubist.orchestration")
+log = logging.getLogger("darwin.orchestration")
 
 
 def _read_source(engine: Engine) -> str:
@@ -362,18 +362,24 @@ async def run_generation_task() -> None:
         next_number = (last.number + 1) if last else 1
 
         if last is None:
-            from cubist.engines.baseline import engine as baseline
+            from darwin.engines.baseline import engine as baseline
             incumbents: list[Engine] = [baseline]
         else:
-            # Reconstruct previous-gen scores from GameRow so we can
-            # carry the top-2 forward. Score = wins + 0.5*draws.
+            # Reconstruct previous-gen win rates from GameRow so we can
+            # carry the top-2 forward. Win rate = (wins + 0.5*draws) /
+            # games_played — same metric ``select_top_n`` used to crown
+            # the champion, so the lineage tiebreak agrees with the
+            # promotion decision rather than using a different signal.
             prev_games = s.exec(
                 select(GameRow).where(GameRow.generation == last.number)
             ).all()
             scores: dict[str, float] = {}
+            games_played: dict[str, int] = {}
             for g in prev_games:
                 scores.setdefault(g.white_name, 0.0)
                 scores.setdefault(g.black_name, 0.0)
+                games_played[g.white_name] = games_played.get(g.white_name, 0) + 1
+                games_played[g.black_name] = games_played.get(g.black_name, 0) + 1
                 if g.result == "1-0":
                     scores[g.white_name] += 1.0
                 elif g.result == "0-1":
@@ -382,14 +388,19 @@ async def run_generation_task() -> None:
                     scores[g.white_name] += 0.5
                     scores[g.black_name] += 0.5
 
+            rates: dict[str, float] = {
+                n: (scores[n] / games_played[n]) if games_played.get(n) else 0.0
+                for n in scores
+            }
+
             # The new champion is non-negotiable — it always seeds the
             # next gen. If there's a runner-up, it joins as a second
-            # incumbent. Order by score desc then by name (deterministic
+            # incumbent. Order by win rate desc then by name (deterministic
             # tiebreak here is fine — the random tiebreak happened in
             # ``select_top_n`` when promotion was decided).
             ranked_names = sorted(
-                scores.keys(),
-                key=lambda n: (-scores[n], n),
+                rates.keys(),
+                key=lambda n: (-rates[n], n),
             )
             # Champion always first.
             top_names: list[str] = [last.champion_after]
@@ -402,10 +413,10 @@ async def run_generation_task() -> None:
 
             log.info(
                 "lineage candidates for gen=%d top_names=%s "
-                "(scores: %s)",
+                "(win rates: %s)",
                 next_number,
                 top_names,
-                {n: round(scores[n], 1) for n in top_names if n in scores},
+                {n: round(rates[n], 3) for n in top_names if n in rates},
             )
 
             incumbents = []
@@ -415,7 +426,7 @@ async def run_generation_task() -> None:
                 ).first()
                 if row is None:
                     if name == "baseline-v0":
-                        from cubist.engines.baseline import engine as baseline
+                        from darwin.engines.baseline import engine as baseline
                         incumbents.append(baseline)
                         log.info("loaded incumbent %s (baseline import)", name)
                     else:
@@ -442,7 +453,7 @@ async def run_generation_task() -> None:
                     "could not load any incumbent from gen=%d; falling back "
                     "to baseline-v0", last.number,
                 )
-                from cubist.engines.baseline import engine as baseline
+                from darwin.engines.baseline import engine as baseline
                 incumbents = [baseline]
 
     log.info(

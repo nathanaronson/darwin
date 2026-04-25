@@ -1,6 +1,6 @@
 """Shared LLM client with provider dispatch (Claude or Gemini).
 
-Every LLM call in Cubist goes through this module so we have one place
+Every LLM call in Darwin goes through this module so we have one place
 to tune concurrency, retries, and rate-limit handling. The provider is
 selected by ``settings.llm_provider``:
 
@@ -28,9 +28,9 @@ import time
 from types import SimpleNamespace
 from typing import Any
 
-from cubist.config import settings
+from darwin.config import settings
 
-log = logging.getLogger("cubist.llm")
+log = logging.getLogger("darwin.llm")
 
 _sem = asyncio.Semaphore(30)
 
@@ -75,7 +75,7 @@ def _anthropic_tools_to_gemini(tools: list[dict]):
     Anthropic tool shape:  ``{name, description, input_schema}``
     Gemini tool shape:     ``Tool(function_declarations=[FunctionDeclaration(...)])``
 
-    Cubist's tool schemas are JSON Schema, which Gemini's ``parameters``
+    Darwin's tool schemas are JSON Schema, which Gemini's ``parameters``
     field accepts directly — no structural translation needed.
     """
     from google.genai import types

@@ -1,6 +1,6 @@
 # Follow-up 2 — Builder quality gate + prompt fix
 
-**Owner:** TBD  •  **Branch:** `followup/builder-quality`  •  **Est:** 3–5 hours
+**Owner:** TBD  •  **Branch:** `followup/builder-quality`
 
 ## Why
 
@@ -8,12 +8,12 @@ Every engine the builder has produced so far contains the same import
 bug:
 
 ```python
-from cubist import config as settings     # ← imports the MODULE
+from darwin import config as settings     # ← imports the MODULE
 ...
 text = await complete_text(settings.player_model, ...)   # AttributeError
 ```
 
-`cubist.config` is a module; `settings` is the `Settings()` instance
+`darwin.config` is a module; `settings` is the `Settings()` instance
 *inside* that module. Accessing `settings.player_model` raises
 `AttributeError`, which is swallowed by the generated engine's
 try/except fallback:
@@ -32,7 +32,7 @@ engine is useless in a real tournament.
 
 ### 1. Fix the builder prompt
 
-`backend/cubist/agents/prompts/builder_v1.md` needs a concrete, correct
+`backend/darwin/agents/prompts/builder_v1.md` needs a concrete, correct
 import example. Explicit is better than implicit — show the exact line
 to use and forbid the broken one.
 
@@ -44,18 +44,18 @@ Add a section:
 Use exactly these imports — no others:
 
     import chess
-    from cubist.engines.base import BaseLLMEngine
-    from cubist.llm import complete_text
-    from cubist.config import settings
+    from darwin.engines.base import BaseLLMEngine
+    from darwin.llm import complete_text
+    from darwin.config import settings
 
-NEVER write `from cubist import config as settings` — that imports the
+NEVER write `from darwin import config as settings` — that imports the
 module, not the settings instance, and will raise AttributeError on
 every access.
 ```
 
 ### 2. Tighten the validator
 
-`backend/cubist/agents/builder.py::validate_engine` plays one game vs
+`backend/darwin/agents/builder.py::validate_engine` plays one game vs
 `RandomEngine`. That's too lenient — an engine whose `select_move`
 always raises will pass because the fallback (`next(iter(legal))`)
 returns a legal move.
@@ -72,8 +72,8 @@ Specifically, reject any source that matches:
 
 ```python
 BANNED_IMPORTS = [
-    r"from\s+cubist\s+import\s+config\s+as\s+settings",
-    r"import\s+cubist\.config\s+as\s+settings",
+    r"from\s+darwin\s+import\s+config\s+as\s+settings",
+    r"import\s+darwin\.config\s+as\s+settings",
 ]
 ```
 
@@ -89,18 +89,18 @@ they differ, the engine is genuinely using the LLM.
 
 ## Done when
 
-- [ ] Builder prompt explicitly shows `from cubist.config import settings`.
+- [ ] Builder prompt explicitly shows `from darwin.config import settings`.
 - [ ] At least one regenerated engine from a real Gemini call uses `settings.player_model` correctly.
 - [ ] Validator rejects any source containing the banned import patterns.
 - [ ] New test `test_builder.py::test_validator_rejects_bad_config_import` covers it.
 
 ## Files to touch
 
-- `backend/cubist/agents/prompts/builder_v1.md`
-- `backend/cubist/agents/builder.py` (`FORBIDDEN` regex + validator tweaks)
+- `backend/darwin/agents/prompts/builder_v1.md`
+- `backend/darwin/agents/builder.py` (`FORBIDDEN` regex + validator tweaks)
 - `backend/tests/test_builder.py`
 
 ## Do **not** touch
 
-- `backend/cubist/engines/base.py` (frozen).
+- `backend/darwin/engines/base.py` (frozen).
 - The `submit_engine` tool schema (strategist relies on its shape).

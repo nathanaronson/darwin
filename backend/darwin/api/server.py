@@ -13,10 +13,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-from cubist.api.routes import router
-from cubist.api.websocket import bus
-from cubist.logging_setup import setup_logging
-from cubist.storage.db import init_db
+from darwin.api.routes import router
+from darwin.api.websocket import bus
+from darwin.logging_setup import setup_logging
+from darwin.storage.db import init_db
 
 
 @asynccontextmanager
@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Cubist", lifespan=lifespan)
+app = FastAPI(title="Darwin", lifespan=lifespan)
 app.include_router(router, prefix="/api")
 
 
