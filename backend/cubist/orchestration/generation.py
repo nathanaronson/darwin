@@ -18,6 +18,7 @@ from cubist.engines.base import Engine
 from cubist.engines.registry import load_engine
 from cubist.storage.db import get_session
 from cubist.storage.models import EngineRow, GameRow, GenerationRow
+from cubist.tournament.elo import update_elo
 from cubist.tournament.runner import round_robin
 from cubist.tournament.selection import select_top_n
 
@@ -111,7 +112,11 @@ async def run_generation(
             )
             continue
         ok, err = await validate_engine(p)
-        name = p.stem
+        # ``p.stem`` is the safe filename (underscored: gen1_book_abc).
+        # ``engine.name`` and game.finished.white/black use the hyphenated
+        # form (gen1-book-abc). Emit the hyphenated form so the Bracket
+        # join lines up.
+        name = p.stem.replace("_", "-")
         if not ok:
             log.error(
                 "validator rejected q=%d category=%s engine=%s reason=%r",
@@ -166,6 +171,51 @@ async def run_generation(
     new_champion = top[0]
     promoted = new_champion.name != primary.name
 
+    # ── Elo update ──────────────────────────────────────────────────────
+    # Standard chess Elo, K=32 — the typical hackathon-friendly value
+    # (USCF-style). Each engine in the cohort gets one rating update per
+    # game it played. New candidates start at 1500 (the chess midpoint);
+    # baseline-v0 is also seeded at 1500 by ``scripts/seed_baseline.py``.
+    cohort_names = [e.name for e in cohort]
+    with get_session() as s:
+        from sqlmodel import select as _select
+
+        existing_rows = s.exec(
+            _select(EngineRow).where(EngineRow.name.in_(cohort_names))
+        ).all()
+        ratings: dict[str, float] = {row.name: row.elo for row in existing_rows}
+
+    for name in cohort_names:
+        ratings.setdefault(name, 1500.0)
+
+    pre_ratings = dict(ratings)
+    for game in standings.games:
+        if game.result == "1-0":
+            score_a = 1.0
+        elif game.result == "0-1":
+            score_a = 0.0
+        else:
+            score_a = 0.5
+        new_w, new_b = update_elo(
+            ratings[game.white],
+            ratings[game.black],
+            score_a,
+        )
+        ratings[game.white] = new_w
+        ratings[game.black] = new_b
+
+    # Champion's Elo delta = post-tournament Elo of the new champion
+    # minus its pre-tournament Elo. For a fresh promotion this includes
+    # the candidate's whole gain (it walked in at 1500 and walked out
+    # at whatever it earned). For a retention this is just the seasoned
+    # champion's drift.
+    elo_delta = ratings[new_champion.name] - pre_ratings[new_champion.name]
+    log.info(
+        "elo updates gen=%d primary=%s -> %.1f, new_champion=%s -> %.1f (delta=%.1f)",
+        generation_number, primary.name, ratings[primary.name],
+        new_champion.name, ratings[new_champion.name], elo_delta,
+    )
+
     with get_session() as s:
         from sqlmodel import select as _select
 
@@ -210,8 +260,18 @@ async def run_generation(
                     generation=generation_number,
                     parent_name=primary.name,
                     code_path=path,
+                    elo=ratings.get(cand.name, 1500.0),
                 )
             )
+
+        # Update Elo for engines that already have a row (baseline,
+        # previously-promoted champions, prior runners-up).
+        for row in s.exec(
+            _select(EngineRow).where(EngineRow.name.in_(cohort_names))
+        ).all():
+            row.elo = ratings[row.name]
+            s.add(row)
+
         s.commit()
 
     await bus.emit(
@@ -219,7 +279,7 @@ async def run_generation(
             "type": "generation.finished",
             "number": generation_number,
             "new_champion": new_champion.name,
-            "elo_delta": 0.0,
+            "elo_delta": round(elo_delta, 1),
             "promoted": promoted,
         }
     )
