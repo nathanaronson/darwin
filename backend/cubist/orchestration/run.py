@@ -3,7 +3,7 @@
 Usage:
     uv run python -m cubist.orchestration.run --generations 3
 
-Each generation runs the full loop: strategist -> 5 builders -> validator ->
+Each generation runs the full loop: strategist -> 2 builders -> validator ->
 round-robin tournament -> anti-regression selection -> DB persist -> WS emit.
 The DB is initialized on startup if the schema is missing. The baseline
 engine (from Person A) is used as the starting champion unless a later

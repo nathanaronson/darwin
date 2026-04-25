@@ -25,11 +25,12 @@ def _fake_text_block(text: str) -> SimpleNamespace:
 
 @pytest.mark.asyncio
 async def test_propose_questions_happy_path(monkeypatch):
-    """Strategist returns one Question per locked category in order."""
+    """Strategist returns two distinct-category Question records."""
+    chosen = CATEGORIES[:2]
     payload = {
         "questions": [
             {"category": cat, "text": f"Make the {cat} better please" * 2}
-            for cat in CATEGORIES
+            for cat in chosen
         ]
     }
 
@@ -40,22 +41,19 @@ async def test_propose_questions_happy_path(monkeypatch):
 
     qs = await propose_questions(champion_code="x = 1", history=[])
 
-    assert len(qs) == 5
-    assert {q.category for q in qs} == set(CATEGORIES)
+    assert len(qs) == 2
+    assert {q.category for q in qs} == set(chosen)
     assert all(isinstance(q, Question) for q in qs)
     assert all(len(q.text) >= 20 for q in qs)
 
 
 @pytest.mark.asyncio
 async def test_propose_questions_dedupes_repeated_category(monkeypatch):
-    """Two prompt-categories: the first wins, the second is dropped, raising."""
+    """Both questions share a category: dedupe collapses to 1, raising."""
     payload = {
         "questions": [
             {"category": "prompt", "text": "first prompt question is fine"},
             {"category": "prompt", "text": "second prompt question is fine"},
-            {"category": "search", "text": "search idea is fine and proper"},
-            {"category": "book", "text": "book idea is fine and proper"},
-            {"category": "evaluation", "text": "evaluation idea is fine"},
         ]
     }
 
@@ -88,7 +86,7 @@ async def test_propose_questions_passes_history_into_prompt(monkeypatch):
     payload = {
         "questions": [
             {"category": cat, "text": f"valid question for {cat} category"}
-            for cat in CATEGORIES
+            for cat in CATEGORIES[:2]
         ]
     }
 

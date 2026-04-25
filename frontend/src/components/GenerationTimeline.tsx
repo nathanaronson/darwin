@@ -4,7 +4,7 @@
  * Groups events by generation number and renders one row per generation showing:
  *   - Generation number
  *   - Champion before the generation started
- *   - Up to 5 strategist questions (abbreviated for readability)
+ *   - Up to 2 strategist questions (abbreviated for readability)
  *   - The new champion after the tournament
  *   - Elo delta (positive = improvement)
  *   - A PROMOTED / KEPT / in-progress badge
@@ -36,7 +36,7 @@ interface GenerationTimelineProps {
 interface GenRow {
   number: number;
   championBefore: string;
-  /** Up to 5 strategist questions for this generation, may be shorter if still arriving. */
+  /** Up to 2 strategist questions for this generation, may be shorter if still arriving. */
   questions: string[];
   /** Set once GenerationFinished arrives; undefined while in progress. */
   newChampion: string | undefined;
@@ -81,8 +81,8 @@ export default function GenerationTimeline({ events }: GenerationTimelineProps) 
           <tr className="border-b border-gray-700">
             <th className="p-1.5 text-left text-gray-500 font-normal w-8">Gen</th>
             <th className="p-1.5 text-left text-gray-500 font-normal">Champion Before</th>
-            <th className="p-1.5 text-left text-gray-500 font-normal" colSpan={5}>
-              Questions (5)
+            <th className="p-1.5 text-left text-gray-500 font-normal" colSpan={2}>
+              Questions (2)
             </th>
             <th className="p-1.5 text-left text-gray-500 font-normal">Winner</th>
             <th className="p-1.5 text-right text-gray-500 font-normal">Elo Δ</th>
@@ -122,8 +122,8 @@ function GenerationRow({ row }: { row: GenRow }) {
         {shortName(row.championBefore)}
       </td>
 
-      {/* Up to 5 question cells, padded with "—" if still arriving */}
-      {Array.from({ length: 5 }).map((_, i) => (
+      {/* Up to 2 question cells, padded with "—" if still arriving */}
+      {Array.from({ length: 2 }).map((_, i) => (
         <td
           key={i}
           className="p-1.5 text-gray-400 max-w-[90px] truncate"

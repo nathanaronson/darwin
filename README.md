@@ -8,9 +8,9 @@ A self-improving chess engine that evolves its own scaffolding overnight via age
 
 A fixed LLM plays chess inside a harness. Each generation:
 
-1. A **strategist agent** asks 5 distinct questions about how the current champion could be improved.
-2. **5 builder agents** work in parallel — each writes a modified engine answering one question.
-3. The 5 candidates + the reigning champion play a round-robin tournament.
+1. A **strategist agent** asks 2 distinct questions about how the current champion could be improved.
+2. **2 builder agents** work in parallel — each writes a modified engine answering one question.
+3. The 2 candidates + the reigning champion play a round-robin tournament.
 4. The top scorer becomes the new champion *only if* it beats the prior champion head-to-head.
 5. Repeat.
 
@@ -28,25 +28,47 @@ docs/         Reference docs (proposal, architecture)
 
 ## Setup
 
-**Backend:**
+The repo ships a `Makefile` with all the common targets — run `make help` to list them.
+
+**First-time setup:**
 ```bash
-cd backend
-uv sync
-cp ../.env.example ../.env  # then fill in ANTHROPIC_API_KEY
-uv run uvicorn cubist.api.server:app --reload
+make install              # uv sync backend + npm install frontend
+cp .env.example .env      # then fill in ANTHROPIC_API_KEY (or GOOGLE_API_KEY, see below)
+uv tool install honcho    # only if you plan to use `make dev` (runs both services together)
+make seed                 # initialize the DB and insert baseline-v0 (idempotent)
 ```
 
-**Frontend:**
+**LLM provider:** set `LLM_PROVIDER=claude` (default) or `LLM_PROVIDER=gemini` in `.env`.
+Claude uses `ANTHROPIC_API_KEY`; Gemini uses `GOOGLE_API_KEY`. When switching, also flip
+the `*_MODEL` IDs to values your provider supports (e.g. `gemini-2.5-pro`). The strategist
+and builder agents use function-calling on both providers; the call sites are unchanged.
+
+**Running:**
 ```bash
-cd frontend
-npm install
-npm run dev
+make dev                  # backend (:8000) + frontend (:5173) together via honcho
+# or run them separately in two terminals:
+make backend
+make frontend
 ```
 
-**Run a generation (CLI):**
+**Trigger a generation:**
 ```bash
-cd backend
-uv run python -m cubist.orchestration.run --generations 1
+# via the API (backend must be running):
+curl -X POST http://localhost:8000/api/generations/run
+
+# or from the CLI:
+make run                  # one generation
+make run N=3              # three back-to-back
+```
+
+**Other useful targets:**
+```bash
+make test                 # pytest
+make check                # lint + tests (pre-PR gate)
+make smoke                # quick 10-move baseline self-play
+make eval WHITE=baseline-v0 BLACK=random N=10   # head-to-head match
+make replay               # re-emit persisted generations over WS (demo safety net)
+make reset                # drop the DB and re-seed
 ```
 
 ## Team
