@@ -143,9 +143,13 @@ async def run_generation(
         return_exceptions=True,
     )
 
-    candidates: list[Engine] = []
-    candidate_paths: dict[str, str] = {}
-    for q, p in zip(questions, paths):
+    # Smoke-validate every built candidate concurrently. Each smoke game
+    # has its own 60s wall-clock cap inside ``validate_engine``; running
+    # them serially makes the worst case 4×60s = 4 minutes of dead time
+    # before the tournament can start. Each task emits its own
+    # ``builder.completed`` event the moment its smoke finishes, so the
+    # dashboard still sees results stream in (not batched at the end).
+    async def _validate_one(q, p):
         if isinstance(p, Exception):
             log.error(
                 "build_engine raised q=%d category=%s err=%r",
@@ -160,7 +164,7 @@ async def run_generation(
                     "error": str(p),
                 }
             )
-            continue
+            return None
         ok, err = await validate_engine(p)
         # ``p.stem`` is the safe filename (underscored: gen1_book_abc).
         # ``engine.name`` and game.finished.white/black use the hyphenated
@@ -183,10 +187,23 @@ async def run_generation(
                 "error": err,
             }
         )
-        if ok:
-            eng = load_engine(str(p))
-            candidate_paths[eng.name] = str(p.resolve())
-            candidates.append(eng)
+        if not ok:
+            return None
+        eng = load_engine(str(p))
+        return eng, str(p.resolve())
+
+    validated = await asyncio.gather(
+        *(_validate_one(q, p) for q, p in zip(questions, paths))
+    )
+
+    candidates: list[Engine] = []
+    candidate_paths: dict[str, str] = {}
+    for r in validated:
+        if r is None:
+            continue
+        eng, resolved_path = r
+        candidate_paths[eng.name] = resolved_path
+        candidates.append(eng)
 
     # If every candidate fell through, ``round_robin([champion])`` will
     # schedule zero games (i==j filter). Surface this loudly so the
