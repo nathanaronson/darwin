@@ -23,7 +23,7 @@ Roles each generation:
 
 The dashboard streams every move, every strategist question, every bracket result, and every Elo update over a WebSocket so you can watch a generation unfold in real time. A second branch — [`docs/experiment-pure-code.md`](./docs/experiment-pure-code.md) — flips the design so the LLM *writes* a classical alpha-beta engine that plays without any LLM at runtime.
 
-For deeper reading: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), [`docs/PROCESS.md`](./docs/PROCESS.md), [`docs/CONTRIBUTING.md`](./docs/CONTRIBUTING.md), [`plans/`](./plans/), [`docs/SHORTCOMINGS.md`](./docs/SHORTCOMINGS.md), [`docs/CHANGELOG.md`](./docs/CHANGELOG.md).
+For deeper reading: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), [`docs/PROCESS.md`](./docs/PROCESS.md), [`plans/`](./plans/), [`docs/SHORTCOMINGS.md`](./docs/SHORTCOMINGS.md), [`docs/CHANGELOG.md`](./docs/CHANGELOG.md).
 
 ---
 
@@ -76,7 +76,7 @@ backend/      Python: engines, agents, tournament, API, orchestration
 frontend/     React + Vite dashboard
 scripts/      One-off CLIs (run a generation, eval matches, smoke, replay)
 plans/        Per-person build plans for the 5-engineer team
-docs/         Architecture, process, contributing, proposal, changelog
+docs/         Architecture, process, proposal, changelog
 ```
 
 Frozen contracts (interfaces between workstreams — change only with team sign-off): see [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md#frozen-contracts).
