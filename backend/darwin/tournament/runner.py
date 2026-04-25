@@ -38,15 +38,12 @@ async def warm_modal_pool(n: int = 4) -> None:
         return
     try:
         import modal
-        f = modal.Function.from_name(
-            "darwin-tournament", "play_game_remote"
-        )
+
+        f = modal.Function.from_name("darwin-tournament", "play_game_remote")
         await f.update_autoscaler.aio(min_containers=n)
         log.info("modal warm-pool set to min_containers=%d", n)
     except Exception as e:
-        log.warning(
-            "modal warm-pool call failed: %r — proceeding without pre-warm", e
-        )
+        log.warning("modal warm-pool call failed: %r — proceeding without pre-warm", e)
 
 
 async def cool_modal_pool() -> None:
@@ -55,9 +52,8 @@ async def cool_modal_pool() -> None:
         return
     try:
         import modal
-        f = modal.Function.from_name(
-            "darwin-tournament", "play_game_remote"
-        )
+
+        f = modal.Function.from_name("darwin-tournament", "play_game_remote")
         await f.update_autoscaler.aio(min_containers=0)
         log.info("modal warm-pool cooled (min_containers=0)")
     except Exception as e:
@@ -109,13 +105,9 @@ async def _round_robin_local(
 
     async def _guarded(white: Engine, black: Engine, game_id: int) -> GameResult:
         async with sem:
-            return await play_game(
-                white, black, time_per_move_ms, on_event, game_id
-            )
+            return await play_game(white, black, time_per_move_ms, on_event, game_id)
 
-    return await asyncio.gather(
-        *[_guarded(w, b, gid) for (w, b, gid) in pairings]
-    )
+    return await asyncio.gather(*[_guarded(w, b, gid) for (w, b, gid) in pairings])
 
 
 async def _round_robin_modal(
@@ -136,12 +128,8 @@ async def _round_robin_modal(
     # Look up deployed objects. Importing them from modal_runner would
     # only give us un-hydrated references because the local process
     # isn't inside an ``app.run()`` context.
-    play_game_remote = modal.Function.from_name(
-        "darwin-tournament", "play_game_remote"
-    )
-    events_queue = modal.Queue.from_name(
-        "darwin-events", create_if_missing=True
-    )
+    play_game_remote = modal.Function.from_name("darwin-tournament", "play_game_remote")
+    events_queue = modal.Queue.from_name("darwin-events", create_if_missing=True)
 
     # Drain any stale events from a previous run (orphaned by cancel,
     # crash, or a slow consumer). We don't want gen N's leftovers to
@@ -183,7 +171,8 @@ async def _round_robin_modal(
     cohort_size = len({w.name for w, _, _ in pairings} | {b.name for _, b, _ in pairings})
     log.info(
         "modal-tournament dispatching %d games (cohort_size=%d) with live event streaming",
-        len(args), cohort_size,
+        len(args),
+        cohort_size,
     )
 
     # Drainer: pull events from the Modal queue and re-emit on our bus
@@ -198,9 +187,7 @@ async def _round_robin_modal(
                 # in batches of 5 via ``put_many``, so reading one at a
                 # time forces the queue server to do as many round-trips
                 # as we'd save by batching.
-                batch = await asyncio.wait_for(
-                    events_queue.get_many.aio(10), timeout=0.2
-                )
+                batch = await asyncio.wait_for(events_queue.get_many.aio(10), timeout=0.2)
                 if on_event is not None:
                     for ev in batch:
                         await on_event(ev)
@@ -223,13 +210,10 @@ async def _round_robin_modal(
         # at the OS level, raising FunctionTimeoutError on our side.
         # We synthesize an "error" GameResult for that game and keep
         # going. The cohort still gets a fair score for the other 89.
-        handles = [
-            await play_game_remote.spawn.aio(*a) for a in args
-        ]
+        handles = [await play_game_remote.spawn.aio(*a) for a in args]
 
         for h, a in zip(handles, args):
-            (_white_src, white_name, _black_src, black_name,
-             _t, game_id) = a
+            (_white_src, white_name, _black_src, black_name, _t, game_id) = a
             try:
                 ret = await h.get.aio()
                 results.append(
@@ -246,7 +230,9 @@ async def _round_robin_modal(
                     "modal game id=%d (%s vs %s) failed: %s — "
                     "synthesizing draw with termination=error so the "
                     "tournament can continue.",
-                    game_id, white_name, black_name,
+                    game_id,
+                    white_name,
+                    black_name,
                     f"{type(e).__name__}: {str(e)[:140]}",
                 )
                 # Synthesize a draw so neither side benefits/suffers
@@ -264,15 +250,17 @@ async def _round_robin_modal(
                 # Emit a synthetic game.finished so the dashboard can
                 # mark the board as done instead of showing it stuck.
                 if on_event is not None:
-                    await on_event({
-                        "type": "game.finished",
-                        "game_id": game_id,
-                        "white": white_name,
-                        "black": black_name,
-                        "result": "1/2-1/2",
-                        "termination": "error",
-                        "pgn": "",
-                    })
+                    await on_event(
+                        {
+                            "type": "game.finished",
+                            "game_id": game_id,
+                            "white": white_name,
+                            "black": black_name,
+                            "result": "1/2-1/2",
+                            "termination": "error",
+                            "pgn": "",
+                        }
+                    )
     finally:
         # Tail-drain: a couple of events may still be in flight from
         # the last container. Give them a beat to land before stopping.
@@ -314,9 +302,7 @@ async def round_robin(
         # then also raises, that propagates to run_generation_task
         # which surfaces a "generation crashed" event.
         try:
-            results = await _round_robin_modal(
-                pairings, time_per_move_ms, on_event
-            )
+            results = await _round_robin_modal(pairings, time_per_move_ms, on_event)
         except Exception as e:
             log.warning(
                 "modal-tournament dispatch failed (%s: %s) — falling "
@@ -325,14 +311,10 @@ async def round_robin(
                 type(e).__name__,
                 str(e)[:200],
             )
-            results = await _round_robin_local(
-                pairings, time_per_move_ms, on_event
-            )
+            results = await _round_robin_local(pairings, time_per_move_ms, on_event)
     elif backend == "local":
         results = await _round_robin_local(pairings, time_per_move_ms, on_event)
     else:
-        raise ValueError(
-            f"unknown tournament_backend={backend!r}; expected 'local' or 'modal'"
-        )
+        raise ValueError(f"unknown tournament_backend={backend!r}; expected 'local' or 'modal'")
 
     return _tally(engines, results)

@@ -138,7 +138,11 @@ async def complete(
     tool_names = [t["name"] for t in tools] if tools else []
     log.info(
         "complete provider=%s model=%s prompt_chars=%d max_tokens=%d tools=%s",
-        settings.llm_provider, model, len(user), max_tokens, tool_names,
+        settings.llm_provider,
+        model,
+        len(user),
+        max_tokens,
+        tool_names,
     )
     t0 = time.monotonic()
     try:
@@ -149,14 +153,19 @@ async def complete(
     except Exception:
         log.exception(
             "complete failed after %.1fs provider=%s model=%s",
-            time.monotonic() - t0, settings.llm_provider, model,
+            time.monotonic() - t0,
+            settings.llm_provider,
+            model,
         )
         raise
 
     summary = _summarize_blocks(blocks)
     log.info(
         "complete ok in %.1fs provider=%s model=%s blocks=%s",
-        time.monotonic() - t0, settings.llm_provider, model, summary,
+        time.monotonic() - t0,
+        settings.llm_provider,
+        model,
+        summary,
     )
     return blocks
 
@@ -267,15 +276,16 @@ async def _complete_gemini(
                 if not blocks:
                     # Help diagnose "did not return tool_use" vs. truncation,
                     # safety blocks, or other silent empty-response states.
-                    cand = (response.candidates[0]
-                            if getattr(response, "candidates", None) else None)
+                    cand = response.candidates[0] if getattr(response, "candidates", None) else None
                     fr = getattr(cand, "finish_reason", None)
                     safety = getattr(cand, "safety_ratings", None)
                     usage = getattr(response, "usage_metadata", None)
                     log.warning(
-                        "gemini empty response model=%s finish_reason=%r "
-                        "safety=%r usage=%r",
-                        model, fr, safety, usage,
+                        "gemini empty response model=%s finish_reason=%r safety=%r usage=%r",
+                        model,
+                        fr,
+                        safety,
+                        usage,
                     )
                 return blocks
             except genai_errors.APIError as e:
@@ -286,7 +296,10 @@ async def _complete_gemini(
                 # string of 503s look identical from outside.
                 log.warning(
                     "gemini retry attempt=%d/5 status=%r model=%s err=%s",
-                    attempt + 1, status, model, str(e)[:200],
+                    attempt + 1,
+                    status,
+                    model,
+                    str(e)[:200],
                 )
                 if status == 429 or (attempt < 4):
                     await asyncio.sleep(backoff)

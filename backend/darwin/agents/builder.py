@@ -358,7 +358,9 @@ async def build_engine(
 
     logger.info(
         "build_engine starting engine=%s category=%s gen=%d",
-        engine_name, question.category, generation,
+        engine_name,
+        question.category,
+        generation,
     )
 
     content = await complete(
@@ -387,7 +389,9 @@ async def build_engine(
         logger.error(
             "build_engine no tool_use engine=%s blocks=%s "
             "(raw saved to engines/generated/_failures/%s.txt)",
-            engine_name, block_summary, engine_name,
+            engine_name,
+            block_summary,
+            engine_name,
         )
         raise RuntimeError(
             f"builder did not return tool_use (engine={engine_name}, blocks={block_summary})"
@@ -401,18 +405,21 @@ async def build_engine(
         logger.error(
             "build_engine rejected engine=%s reason=%s "
             "(raw saved to engines/generated/_failures/%s.txt)",
-            engine_name, reason, engine_name,
+            engine_name,
+            reason,
+            engine_name,
         )
-        raise ValueError(
-            f"builder code rejected: {reason} (engine={engine_name})"
-        )
+        raise ValueError(f"builder code rejected: {reason} (engine={engine_name})")
 
     GENERATED_DIR.mkdir(parents=True, exist_ok=True)
     out = GENERATED_DIR / safe_filename
     out.write_text(chosen_code)
     logger.info(
         "build_engine wrote engine=%s path=%s lines=%d chars=%d",
-        engine_name, out, chosen_code.count("\n") + 1, len(chosen_code),
+        engine_name,
+        out,
+        chosen_code.count("\n") + 1,
+        len(chosen_code),
     )
     return out
 
@@ -500,12 +507,16 @@ async def validate_engine(module_path: Path) -> tuple[bool, str | None]:
     if term in REJECT_TERMINATIONS:
         logger.error(
             "validate_engine smoke-game termination=%r engine=%s — rejecting",
-            term, name_hint,
+            term,
+            name_hint,
         )
         return False, f"smoke termination: {term}"
 
     logger.info(
         "validate_engine ok engine=%s smoke=%s/%s termination=%s",
-        name_hint, result.white, result.black, term,
+        name_hint,
+        result.white,
+        result.black,
+        term,
     )
     return True, None

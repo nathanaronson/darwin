@@ -1,4 +1,5 @@
 """Tests for darwin.orchestration.generation.run_generation_task."""
+
 from __future__ import annotations
 
 import json
@@ -35,19 +36,23 @@ async def test_run_generation_task_resumes_from_last_champion(mem_db, monkeypatc
     gen1_path = "/absolute/path/gen1_prompt_abc123.py"
 
     with Session(mem_db) as s:
-        s.add(GenerationRow(
-            number=1,
-            champion_before="baseline-v0",
-            champion_after=gen1_winner,
-            strategist_questions_json="[]",
-            finished_at=datetime.utcnow(),
-        ))
-        s.add(EngineRow(
-            name=gen1_winner,
-            generation=1,
-            parent_name="baseline-v0",
-            code_path=gen1_path,
-        ))
+        s.add(
+            GenerationRow(
+                number=1,
+                champion_before="baseline-v0",
+                champion_after=gen1_winner,
+                strategist_questions_json="[]",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        s.add(
+            EngineRow(
+                name=gen1_winner,
+                generation=1,
+                parent_name="baseline-v0",
+                code_path=gen1_path,
+            )
+        )
         s.commit()
 
     fake_champion = FakeEngine(gen1_winner)
@@ -110,44 +115,60 @@ def test_champion_question_picks_latest_promoted_generation(mem_db):
     is the question from gen 3 whose category equals gen 3's winning
     category — not gen 4's (which didn't promote) and not gen 1's."""
     with Session(mem_db) as s:
-        s.add(GenerationRow(
-            number=1,
-            champion_before="baseline-v0",
-            champion_after="gen1-prompt-aaaaaa",
-            strategist_questions_json=json.dumps([
-                {"category": "prompt", "text": "old gen1 prompt question"},
-                {"category": "search", "text": "old gen1 search question"},
-            ]),
-            finished_at=datetime.utcnow(),
-        ))
-        s.add(GenerationRow(
-            number=2,
-            champion_before="gen1-prompt-aaaaaa",
-            champion_after="gen1-prompt-aaaaaa",
-            strategist_questions_json=json.dumps([
-                {"category": "book", "text": "gen2 book question"},
-            ]),
-            finished_at=datetime.utcnow(),
-        ))
-        s.add(GenerationRow(
-            number=3,
-            champion_before="gen1-prompt-aaaaaa",
-            champion_after="gen3-search-bbbbbb",
-            strategist_questions_json=json.dumps([
-                {"category": "search", "text": "the actual current originator"},
-                {"category": "book", "text": "gen3 book question"},
-            ]),
-            finished_at=datetime.utcnow(),
-        ))
-        s.add(GenerationRow(
-            number=4,
-            champion_before="gen3-search-bbbbbb",
-            champion_after="gen3-search-bbbbbb",
-            strategist_questions_json=json.dumps([
-                {"category": "evaluation", "text": "gen4 eval question"},
-            ]),
-            finished_at=datetime.utcnow(),
-        ))
+        s.add(
+            GenerationRow(
+                number=1,
+                champion_before="baseline-v0",
+                champion_after="gen1-prompt-aaaaaa",
+                strategist_questions_json=json.dumps(
+                    [
+                        {"category": "prompt", "text": "old gen1 prompt question"},
+                        {"category": "search", "text": "old gen1 search question"},
+                    ]
+                ),
+                finished_at=datetime.utcnow(),
+            )
+        )
+        s.add(
+            GenerationRow(
+                number=2,
+                champion_before="gen1-prompt-aaaaaa",
+                champion_after="gen1-prompt-aaaaaa",
+                strategist_questions_json=json.dumps(
+                    [
+                        {"category": "book", "text": "gen2 book question"},
+                    ]
+                ),
+                finished_at=datetime.utcnow(),
+            )
+        )
+        s.add(
+            GenerationRow(
+                number=3,
+                champion_before="gen1-prompt-aaaaaa",
+                champion_after="gen3-search-bbbbbb",
+                strategist_questions_json=json.dumps(
+                    [
+                        {"category": "search", "text": "the actual current originator"},
+                        {"category": "book", "text": "gen3 book question"},
+                    ]
+                ),
+                finished_at=datetime.utcnow(),
+            )
+        )
+        s.add(
+            GenerationRow(
+                number=4,
+                champion_before="gen3-search-bbbbbb",
+                champion_after="gen3-search-bbbbbb",
+                strategist_questions_json=json.dumps(
+                    [
+                        {"category": "evaluation", "text": "gen4 eval question"},
+                    ]
+                ),
+                finished_at=datetime.utcnow(),
+            )
+        )
         s.commit()
 
     from darwin.orchestration.generation import _champion_question
@@ -160,15 +181,15 @@ def test_champion_question_none_when_no_promotion(mem_db):
     """If every prior generation kept the baseline as champion, the
     champion has no originating strategist question."""
     with Session(mem_db) as s:
-        s.add(GenerationRow(
-            number=1,
-            champion_before="baseline-v0",
-            champion_after="baseline-v0",
-            strategist_questions_json=json.dumps([
-                {"category": "prompt", "text": "..."}
-            ]),
-            finished_at=datetime.utcnow(),
-        ))
+        s.add(
+            GenerationRow(
+                number=1,
+                champion_before="baseline-v0",
+                champion_after="baseline-v0",
+                strategist_questions_json=json.dumps([{"category": "prompt", "text": "..."}]),
+                finished_at=datetime.utcnow(),
+            )
+        )
         s.commit()
 
     from darwin.orchestration.generation import _champion_question
@@ -181,13 +202,15 @@ def test_champion_question_none_for_unparsable_champion_name(mem_db):
     (e.g. a hand-crafted promotion to baseline), the lookup returns None
     rather than guessing a category."""
     with Session(mem_db) as s:
-        s.add(GenerationRow(
-            number=1,
-            champion_before="gen0-prompt-aaaaaa",
-            champion_after="baseline-v0",
-            strategist_questions_json="[]",
-            finished_at=datetime.utcnow(),
-        ))
+        s.add(
+            GenerationRow(
+                number=1,
+                champion_before="gen0-prompt-aaaaaa",
+                champion_after="baseline-v0",
+                strategist_questions_json="[]",
+                finished_at=datetime.utcnow(),
+            )
+        )
         s.commit()
 
     from darwin.orchestration.generation import _champion_question

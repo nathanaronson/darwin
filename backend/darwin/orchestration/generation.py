@@ -32,9 +32,7 @@ log = logging.getLogger("darwin.orchestration")
 # Mirrors builder.py's engine_name format: ``gen{N}-{category}-{6 char sha1}``.
 # Used to recover which category produced a promotion when looking up the
 # question that produced the current champion.
-_WINNING_CATEGORY_RE = re.compile(
-    r"^gen\d+-(" + "|".join(CATEGORIES) + r")-"
-)
+_WINNING_CATEGORY_RE = re.compile(r"^gen\d+-(" + "|".join(CATEGORIES) + r")-")
 
 
 def _read_source(engine: Engine) -> str:
@@ -80,9 +78,7 @@ def _champion_question(before_generation: int) -> dict | None:
     return None
 
 
-async def run_generation(
-    incumbents: list[Engine], generation_number: int
-) -> list[Engine]:
+async def run_generation(incumbents: list[Engine], generation_number: int) -> list[Engine]:
     """Run one generation: strategist → builders → tournament → selection.
 
     ``incumbents[0]`` is the *primary* champion — its source is shown to
@@ -140,19 +136,21 @@ async def run_generation(
     # from the format ``gen{N}-{cat}-{hash}``; baseline retentions
     # don't match and yield None.
     import re as _re_local
+
     _CAT_RE = _re_local.compile(r"^gen\d+-([a-z]+)-")
     with get_session() as s:
         from sqlmodel import select as _select
-        prior_rows = s.exec(
-            _select(GenerationRow).order_by(GenerationRow.number)
-        ).all()
+
+        prior_rows = s.exec(_select(GenerationRow).order_by(GenerationRow.number)).all()
         history = []
         for r in prior_rows:
             m = _CAT_RE.match(r.champion_after)
-            history.append({
-                "generation": r.number,
-                "champion_category": m.group(1) if m else None,
-            })
+            history.append(
+                {
+                    "generation": r.number,
+                    "champion_category": m.group(1) if m else None,
+                }
+            )
 
     questions = await propose_questions(
         primary_src,
@@ -195,7 +193,9 @@ async def run_generation(
         if isinstance(p, Exception):
             log.error(
                 "build_engine raised q=%d category=%s err=%r",
-                q.index, q.category, p,
+                q.index,
+                q.category,
+                p,
             )
             await bus.emit(
                 {
@@ -216,7 +216,10 @@ async def run_generation(
         if not ok:
             log.error(
                 "validator rejected q=%d category=%s engine=%s reason=%r",
-                q.index, q.category, name, err,
+                q.index,
+                q.category,
+                name,
+                err,
             )
         else:
             log.info("validator accepted q=%d category=%s engine=%s", q.index, q.category, name)
@@ -234,9 +237,7 @@ async def run_generation(
         eng = load_engine(str(p))
         return eng, str(p.resolve())
 
-    validated = await asyncio.gather(
-        *(_validate_one(q, p) for q, p in zip(questions, paths))
-    )
+    validated = await asyncio.gather(*(_validate_one(q, p) for q, p in zip(questions, paths)))
 
     candidates: list[Engine] = []
     candidate_paths: dict[str, str] = {}
@@ -289,9 +290,7 @@ async def run_generation(
     with get_session() as s:
         from sqlmodel import select as _select
 
-        existing_rows = s.exec(
-            _select(EngineRow).where(EngineRow.name.in_(cohort_names))
-        ).all()
+        existing_rows = s.exec(_select(EngineRow).where(EngineRow.name.in_(cohort_names))).all()
         ratings: dict[str, float] = {row.name: row.elo for row in existing_rows}
 
     for name in cohort_names:
@@ -308,8 +307,12 @@ async def run_generation(
     elo_delta = ratings[new_champion.name] - pre_ratings[new_champion.name]
     log.info(
         "elo updates gen=%d primary=%s -> %.1f, new_champion=%s -> %.1f (delta=%.1f)",
-        generation_number, primary.name, ratings[primary.name],
-        new_champion.name, ratings[new_champion.name], elo_delta,
+        generation_number,
+        primary.name,
+        ratings[primary.name],
+        new_champion.name,
+        ratings[new_champion.name],
+        elo_delta,
     )
 
     with get_session() as s:
@@ -342,9 +345,7 @@ async def run_generation(
         # gen by name. Dedupe on name — a second appearance under the
         # same name is treated as a no-op.
         for cand in candidates:
-            existing = s.exec(
-                _select(EngineRow).where(EngineRow.name == cand.name)
-            ).first()
+            existing = s.exec(_select(EngineRow).where(EngineRow.name == cand.name)).first()
             if existing is not None:
                 continue
             path = candidate_paths.get(cand.name)
@@ -362,9 +363,7 @@ async def run_generation(
 
         # Update Elo for engines that already have a row (baseline,
         # previously-promoted champions, prior runners-up).
-        for row in s.exec(
-            _select(EngineRow).where(EngineRow.name.in_(cohort_names))
-        ).all():
+        for row in s.exec(_select(EngineRow).where(EngineRow.name.in_(cohort_names))).all():
             row.elo = ratings[row.name]
             s.add(row)
 
@@ -408,13 +407,12 @@ async def run_generation_task() -> None:
     with get_session() as s:
         from sqlmodel import select
 
-        last = s.exec(
-            select(GenerationRow).order_by(GenerationRow.number.desc())
-        ).first()
+        last = s.exec(select(GenerationRow).order_by(GenerationRow.number.desc())).first()
         next_number = (last.number + 1) if last else 1
 
         if last is None:
             from darwin.engines.baseline import engine as baseline
+
             incumbents: list[Engine] = [baseline]
         else:
             # Reconstruct previous-gen win rates from GameRow so we can
@@ -422,9 +420,7 @@ async def run_generation_task() -> None:
             # games_played — same metric ``select_top_n`` used to crown
             # the champion, so the lineage tiebreak agrees with the
             # promotion decision rather than using a different signal.
-            prev_games = s.exec(
-                select(GameRow).where(GameRow.generation == last.number)
-            ).all()
+            prev_games = s.exec(select(GameRow).where(GameRow.generation == last.number)).all()
             scores: dict[str, float] = {}
             games_played: dict[str, int] = {}
             for g in prev_games:
@@ -441,8 +437,7 @@ async def run_generation_task() -> None:
                     scores[g.black_name] += 0.5
 
             rates: dict[str, float] = {
-                n: (scores[n] / games_played[n]) if games_played.get(n) else 0.0
-                for n in scores
+                n: (scores[n] / games_played[n]) if games_played.get(n) else 0.0 for n in scores
             }
 
             # The new champion is non-negotiable — it always seeds the
@@ -464,8 +459,7 @@ async def run_generation_task() -> None:
                     break
 
             log.info(
-                "lineage candidates for gen=%d top_names=%s "
-                "(win rates: %s)",
+                "lineage candidates for gen=%d top_names=%s (win rates: %s)",
                 next_number,
                 top_names,
                 {n: round(rates[n], 3) for n in top_names if n in rates},
@@ -473,12 +467,11 @@ async def run_generation_task() -> None:
 
             incumbents = []
             for name in top_names:
-                row = s.exec(
-                    select(EngineRow).where(EngineRow.name == name)
-                ).first()
+                row = s.exec(select(EngineRow).where(EngineRow.name == name)).first()
                 if row is None:
                     if name == "baseline-v0":
                         from darwin.engines.baseline import engine as baseline
+
                         incumbents.append(baseline)
                         log.info("loaded incumbent %s (baseline import)", name)
                     else:
@@ -495,22 +488,25 @@ async def run_generation_task() -> None:
                     log.warning(
                         "DROPPED incumbent %s — load_engine failed: %r "
                         "(this is why next-gen cohort is smaller than expected)",
-                        name, e,
+                        name,
+                        e,
                     )
 
             # Defensive: if every load failed, fall back to baseline so
             # the generation can still run rather than silently dying.
             if not incumbents:
                 log.error(
-                    "could not load any incumbent from gen=%d; falling back "
-                    "to baseline-v0", last.number,
+                    "could not load any incumbent from gen=%d; falling back to baseline-v0",
+                    last.number,
                 )
                 from darwin.engines.baseline import engine as baseline
+
                 incumbents = [baseline]
 
     log.info(
         "run_generation_task starting generation=%d incumbents=%s",
-        next_number, [e.name for e in incumbents],
+        next_number,
+        [e.name for e in incumbents],
     )
     try:
         try:
@@ -529,9 +525,7 @@ async def run_generation_task() -> None:
         # any error from the bus emit (rare, but the queue may be torn
         # down at server-shutdown time) so cancellation always propagates.
         try:
-            await bus.emit(
-                {"type": "generation.cancelled", "number": next_number}
-            )
+            await bus.emit({"type": "generation.cancelled", "number": next_number})
         except Exception:  # pragma: no cover — best-effort emit
             pass
         raise

@@ -69,9 +69,7 @@ def question() -> Question:
 @pytest.mark.asyncio
 async def test_build_engine_writes_module(tmp_path, monkeypatch, question):
     """Happy path — file is written under generated/, named after category + sha."""
-    monkeypatch.setattr(
-        "darwin.agents.builder.GENERATED_DIR", tmp_path / "generated"
-    )
+    monkeypatch.setattr("darwin.agents.builder.GENERATED_DIR", tmp_path / "generated")
 
     async def fake_complete(**kwargs):
         return [_fake_tool_use_block(LEGAL_ENGINE_SOURCE)]
@@ -93,9 +91,7 @@ async def test_build_engine_writes_module(tmp_path, monkeypatch, question):
 @pytest.mark.asyncio
 async def test_build_engine_rejects_forbidden_imports(tmp_path, monkeypatch, question):
     """Source containing a banned token raises ValueError."""
-    monkeypatch.setattr(
-        "darwin.agents.builder.GENERATED_DIR", tmp_path / "generated"
-    )
+    monkeypatch.setattr("darwin.agents.builder.GENERATED_DIR", tmp_path / "generated")
 
     bad_source = LEGAL_ENGINE_SOURCE + "\nimport subprocess\n"
 
@@ -116,9 +112,7 @@ async def test_build_engine_rejects_forbidden_imports(tmp_path, monkeypatch, que
 @pytest.mark.asyncio
 async def test_build_engine_no_tool_use_raises(tmp_path, monkeypatch, question):
     """Reply without a submit_engine tool_use block is a hard failure."""
-    monkeypatch.setattr(
-        "darwin.agents.builder.GENERATED_DIR", tmp_path / "generated"
-    )
+    monkeypatch.setattr("darwin.agents.builder.GENERATED_DIR", tmp_path / "generated")
 
     async def fake_complete(**kwargs):
         return [SimpleNamespace(type="text", text="here is some prose, sorry")]
@@ -198,7 +192,7 @@ def _drop_pattern(source: str, pattern_name: str) -> str:
         out = source.replace("from darwin.llm import complete_text\n", "")
         out = out.replace(
             "        try:\n"
-            '            text = await complete_text(\n'
+            "            text = await complete_text(\n"
             "                settings.player_model,\n"
             '                "You are a chess engine.",\n'
             '                f"FEN: {board.fen()}\\nYour move:",\n'
@@ -327,9 +321,7 @@ def test_async_pattern_rejects_missing_param():
 
 
 @pytest.mark.asyncio
-async def test_build_engine_rejects_chess_attribute_hallucination(
-    tmp_path, monkeypatch, question
-):
+async def test_build_engine_rejects_chess_attribute_hallucination(tmp_path, monkeypatch, question):
     """Gemini wrote `chess.NAVY: 300,` in a piece-value table. Caught now."""
     monkeypatch.setattr("darwin.agents.builder.GENERATED_DIR", tmp_path / "generated")
     monkeypatch.setattr("darwin.agents.builder.FAILED_DIR", tmp_path / "failures")
@@ -352,9 +344,7 @@ async def test_build_engine_rejects_chess_attribute_hallucination(
 
 
 @pytest.mark.asyncio
-async def test_build_engine_rejects_nonexistent_chess_function(
-    tmp_path, monkeypatch, question
-):
+async def test_build_engine_rejects_nonexistent_chess_function(tmp_path, monkeypatch, question):
     """Genuinely hallucinated function name (caught at static phase).
 
     Note: ``chess.between(a, b)`` IS real (2 args). When Gemini calls

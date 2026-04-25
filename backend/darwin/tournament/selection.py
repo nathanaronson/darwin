@@ -36,17 +36,13 @@ from darwin.tournament.runner import Standings
 
 def win_rate(standings: Standings, name: str) -> float:
     """Score / games_played for ``name``. Returns 0.0 if it played nothing."""
-    games_played = sum(
-        1 for g in standings.games if g.white == name or g.black == name
-    )
+    games_played = sum(1 for g in standings.games if g.white == name or g.black == name)
     if games_played == 0:
         return 0.0
     return standings.scores.get(name, 0.0) / games_played
 
 
-def _ranked_engines(
-    standings: Standings, engines: list[Engine]
-) -> list[Engine]:
+def _ranked_engines(standings: Standings, engines: list[Engine]) -> list[Engine]:
     """Sort engines by win rate descending, with random tiebreak."""
     # ``random.random()`` per key call is the standard "shuffle ties" trick.
     # The negative rate makes desc-order via the natural ascending sort.

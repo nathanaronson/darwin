@@ -13,9 +13,7 @@ class FakeEngine:
         self.generation = 0
         self.lineage: list[str] = []
 
-    async def select_move(
-        self, board: chess.Board, time_remaining_ms: int
-    ) -> chess.Move:
+    async def select_move(self, board: chess.Board, time_remaining_ms: int) -> chess.Move:
         return next(iter(board.legal_moves))
 
 
@@ -63,10 +61,7 @@ def test_random_tiebreak_picks_a_winner_on_equal_score():
     standings = Standings(scores={"inc": 1.0, "cand": 1.0}, games=games)
 
     random.seed(0)
-    winners = {
-        select_champion(standings, incumbent, [candidate])[0].name
-        for _ in range(50)
-    }
+    winners = {select_champion(standings, incumbent, [candidate])[0].name for _ in range(50)}
 
     # With 50 random tiebreak draws between two equally-scored engines,
     # the chance of all-incumbent or all-candidate is 2 / 2**50 — negligible.

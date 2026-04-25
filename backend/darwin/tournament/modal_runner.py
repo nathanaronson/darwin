@@ -114,9 +114,7 @@ async def play_game_remote(
     def _load(src: str, name: str):
         # Unique module name per game so reimports across concurrent
         # games inside the same warmed container don't clash.
-        mod_name = (
-            f"darwin_remote_engine_{name.replace('-', '_')}_{game_id}"
-        )
+        mod_name = f"darwin_remote_engine_{name.replace('-', '_')}_{game_id}"
         mod = types.ModuleType(mod_name)
         sys.modules[mod_name] = mod
         exec(

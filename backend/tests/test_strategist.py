@@ -37,9 +37,7 @@ async def test_propose_questions_rotates_with_history_length():
     """Different gen numbers (encoded as len(history)) must hit different
     pool entries. With pools of size >=4, gen 1 and gen 2 should differ."""
     qs1 = await propose_questions(champion_code="x = 1", history=[])
-    qs2 = await propose_questions(
-        champion_code="x = 1", history=[{"generation": 1}]
-    )
+    qs2 = await propose_questions(champion_code="x = 1", history=[{"generation": 1}])
 
     movable = [c for c in CATEGORIES_USED if len(QUESTION_POOLS[c]) > 1]
     assert movable, "expected at least one rotating pool"

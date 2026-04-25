@@ -183,7 +183,9 @@ async def clear_state():
 
     log.info(
         "state cleared: stopped_running=%s deleted_engines=%d deleted_failures=%d",
-        stopped, deleted_engines, deleted_failures,
+        stopped,
+        deleted_engines,
+        deleted_failures,
     )
     await bus.emit({"type": "state.cleared"})
     return {

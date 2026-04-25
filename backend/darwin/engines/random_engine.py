@@ -1,6 +1,6 @@
 """Random-move engine. Person A owns. Used by:
-  - Person B for referee/runner tests (no API cost)
-  - Person C's validator for smoke-testing builder output
+- Person B for referee/runner tests (no API cost)
+- Person C's validator for smoke-testing builder output
 """
 
 import random
