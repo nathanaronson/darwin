@@ -341,8 +341,9 @@ async def run_generation(
     # ── Elo update ──────────────────────────────────────────────────────
     # Standard chess Elo, K=32 — the typical hackathon-friendly value
     # (USCF-style). Each engine in the cohort gets one rating update per
-    # game it played. New candidates start at 1500 (the chess midpoint);
-    # baseline-v0 is also seeded at 1500 by ``scripts/seed_baseline.py``.
+    # game it played. New candidates inherit a starting Elo from the
+    # midpoint of the top-2 incumbents' ratings — see seed-Elo block
+    # below for why we don't just default to 1500.
     cohort_names = [e.name for e in cohort]
     with get_session() as s:
         from sqlmodel import select as _select
@@ -352,8 +353,33 @@ async def run_generation(
         ).all()
         ratings: dict[str, float] = {row.name: row.elo for row in existing_rows}
 
+    # Seed Elo for new candidates: midpoint of the top-2 incumbents'
+    # ratings. New candidates are derived FROM those incumbents (the
+    # builder sees their source code), so they're a-priori similar in
+    # skill — starting them at the chess-midpoint 1500 when the parents
+    # are already at 1700+ creates a known artifact where any candidate
+    # winning even ~50% of games gets a giant artificial Elo gain (Elo
+    # expected ~0.22 from a 1500 vs a 1700 — anything higher than that
+    # gets credited as huge upset rating). Net effect on the chart:
+    # whenever a fresh candidate is promoted, the champion-Elo line
+    # appears to "drop" because the new champion is climbing from 1500
+    # rather than starting near the parents'. Midpoint seeding makes
+    # the first tournament an honest test of "are you better than
+    # your parents?" rather than a free win for inheriting their work.
+    incumbent_elos = [
+        ratings.get(e.name, 1500.0) for e in incumbents
+    ]
+    if len(incumbent_elos) >= 2:
+        # Midpoint = arithmetic mean of two values = same as median
+        # for n=2; using "midpoint" here for clarity.
+        seed_elo = (incumbent_elos[0] + incumbent_elos[1]) / 2
+    elif incumbent_elos:
+        seed_elo = incumbent_elos[0]
+    else:
+        seed_elo = 1500.0
+
     for name in cohort_names:
-        ratings.setdefault(name, 1500.0)
+        ratings.setdefault(name, seed_elo)
 
     pre_ratings = dict(ratings)
     ratings = update_ratings_for_games(ratings, standings.games)
