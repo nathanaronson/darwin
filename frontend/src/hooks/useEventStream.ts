@@ -19,25 +19,56 @@ import { connectEvents } from "../api/client";
 import { startMockStream } from "./mockEvents";
 import type { CubistEvent } from "../api/events";
 
+const STORAGE_KEY = "cubist.events.v1";
+
+/** Read the persisted event log from localStorage. Tolerant of corruption
+ *  — if anything is off (missing, not JSON, not an array) we treat it as
+ *  empty and let the live WS catch us up.
+ */
+function loadPersisted(): CubistEvent[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as CubistEvent[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Accumulates all {@link CubistEvent}s received since the component mounted.
  *
  * Activates mock mode when the URL contains `?mock` (any value); otherwise
  * connects to the live WebSocket endpoint proxied through Vite at `/ws`.
  *
- * @returns read-only, ever-growing array of events in arrival order
+ * In live mode the event log is mirrored into localStorage so a page
+ * reload (or a tab opened mid-generation) doesn't blank the dashboard.
+ * The backend's EventBus has no replay; without persistence, anything
+ * emitted before the WS subscriber connected is lost forever.
  *
- * @example
- * ```tsx
- * const events = useEventStream();
- * const questions = events.filter(e => e.type === "strategist.question");
- * ```
+ * @returns read-only, ever-growing array of events in arrival order
  */
 export function useEventStream(): CubistEvent[] {
-  const [events, setEvents] = useState<CubistEvent[]>([]);
+  // Mock mode is volatile by design (dev demo flow rebuilds from scratch
+  // every reload). Live mode rehydrates from localStorage.
+  const useMock =
+    typeof location !== "undefined" &&
+    new URLSearchParams(location.search).has("mock");
+  const [events, setEvents] = useState<CubistEvent[]>(() =>
+    useMock ? [] : loadPersisted(),
+  );
 
   useEffect(() => {
-    const useMock = new URLSearchParams(location.search).has("mock");
+    const persist = (next: CubistEvent[]) => {
+      if (useMock) return;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Quota exceeded or serialization failure — drop the persistence
+        // write but keep the in-memory log intact so the UI still updates.
+      }
+    };
 
     // ``state.cleared`` is a control event from the backend's
     // ``/api/state/clear`` endpoint — it tells us the DB has been wiped
@@ -47,19 +78,23 @@ export function useEventStream(): CubistEvent[] {
     const push = (e: CubistEvent) => {
       if (e.type === "state.cleared") {
         setEvents([]);
+        persist([]);
         return;
       }
-      setEvents((prev) => [...prev, e]);
+      setEvents((prev) => {
+        const next = [...prev, e];
+        persist(next);
+        return next;
+      });
     };
 
     if (useMock) {
-      // startMockStream returns a cleanup fn that cancels all pending timeouts
       return startMockStream(push);
     }
 
     const ws = connectEvents(push);
     return () => ws.close();
-  }, []); // intentionally runs once per mount — source does not change
+  }, [useMock]);
 
   return events;
 }

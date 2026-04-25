@@ -1,19 +1,21 @@
 /**
- * EloChart.tsx — animated Elo rating history line chart.
+ * EloChart.tsx — round-robin performance line chart.
  *
- * Builds a cumulative Elo series from {@link GenerationFinished} events and
- * renders it with Recharts. Each new data point triggers Recharts' built-in
- * animation so the line visibly "climbs" on screen — this is the dashboard's
- * hero shot for judges.
+ * The previous version plotted Elo, but the orchestrator currently emits
+ * `elo_delta=0` on every generation, so the line was always flat and
+ * uninformative. Replaced with the new champion's actual round-robin
+ * score this gen — wins + 0.5*draws as a percentage of the games it
+ * played in the tournament.
  *
- * The baseline Elo is 1500 (generation 0, the random/baseline engine).
- * Each subsequent generation's Elo is computed as:
- *   elo[n] = elo[n-1] + generation_finished.elo_delta
+ * That number tells the judge two real things:
+ *   - >50%  the new champion *dominated* its cohort this generation
+ *   - ~50%  a close fight (often baseline retains by tiebreaker)
  *
- * Non-promoted generations (elo_delta ≤ 0) are still plotted so the chart
- * shows stagnation/regression honestly.
- *
- * @listens {GenerationFinished} - each event appends one data point
+ * Data source: `game.finished` events bracketed by `generation.started` /
+ * `generation.finished`. Score is attributed to the winner-side engine
+ * for 1-0 / 0-1, and 0.5 to each side for draws. We rebuild the series
+ * from scratch on each render — cheap because the total event count is
+ * small (low thousands at most for a multi-gen demo run).
  *
  * @module EloChart
  */
@@ -27,62 +29,104 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import type { CubistEvent, GenerationFinished } from "../api/events";
+import type { CubistEvent } from "../api/events";
 
-/** Props accepted by {@link EloChart}. */
 interface EloChartProps {
-  /** Full accumulated event log from {@link useEventStream}. */
   events: CubistEvent[];
 }
 
-/** One data point on the Elo chart: which generation and what Elo rating. */
-interface EloPoint {
+interface PerfPoint {
   gen: number;
-  elo: number;
+  /** Champion of this generation. */
+  champion: string;
+  /** Wins + 0.5*draws as percent of games played by the champion. */
+  scorePct: number;
+  /** Total games the champion played in this gen's round-robin. */
+  games: number;
+  /** Whether the dashboard saw this gen *promote* (new champion crowned). */
+  promoted: boolean;
 }
 
-/**
- * EloChart — renders an animated line chart of the champion's Elo rating
- * across generations, updating in real time as GenerationFinished events arrive.
- *
- * @param props.events - the full accumulated event log from useEventStream()
- * @returns a Recharts LineChart inside a dark card, or a placeholder if no
- *          generation has finished yet
- */
-export default function EloChart({ events }: EloChartProps) {
-  const finishedEvents = events.filter(
-    (e): e is GenerationFinished => e.type === "generation.finished"
-  );
+/** Walk the event log once and return one PerfPoint per finished generation. */
+function buildPoints(events: CubistEvent[]): PerfPoint[] {
+  const points: PerfPoint[] = [];
 
-  // Accumulate Elo cumulatively from the baseline of 1500.
-  // The baseline (gen 0) is always the first point so the chart has an origin.
-  const data: EloPoint[] = [{ gen: 0, elo: 1500 }];
+  // Per-generation accumulators reset at each generation.started boundary.
+  let curGen: number | null = null;
+  let scoreByEngine = new Map<string, number>();
+  let gamesByEngine = new Map<string, number>();
 
-  for (const ev of finishedEvents) {
-    const prev = data[data.length - 1].elo;
-    data.push({ gen: ev.number, elo: Math.round((prev + ev.elo_delta) * 10) / 10 });
+  for (const e of events) {
+    if (e.type === "generation.started") {
+      curGen = e.number;
+      scoreByEngine = new Map();
+      gamesByEngine = new Map();
+      continue;
+    }
+
+    if (e.type === "generation.cancelled") {
+      // Cancelled gens never reach `generation.finished`, so we drop the
+      // partial accumulators rather than emitting a misleading point.
+      curGen = null;
+      continue;
+    }
+
+    if (e.type === "game.finished" && curGen !== null) {
+      const w = e.white;
+      const b = e.black;
+      gamesByEngine.set(w, (gamesByEngine.get(w) ?? 0) + 1);
+      gamesByEngine.set(b, (gamesByEngine.get(b) ?? 0) + 1);
+      if (e.result === "1-0") {
+        scoreByEngine.set(w, (scoreByEngine.get(w) ?? 0) + 1);
+      } else if (e.result === "0-1") {
+        scoreByEngine.set(b, (scoreByEngine.get(b) ?? 0) + 1);
+      } else {
+        // Draw — half a point each. Covers "1/2-1/2" and any other
+        // termination that pgn-rules treats as a draw.
+        scoreByEngine.set(w, (scoreByEngine.get(w) ?? 0) + 0.5);
+        scoreByEngine.set(b, (scoreByEngine.get(b) ?? 0) + 0.5);
+      }
+      continue;
+    }
+
+    if (e.type === "generation.finished" && curGen !== null) {
+      const champion = e.new_champion;
+      const games = gamesByEngine.get(champion) ?? 0;
+      const score = scoreByEngine.get(champion) ?? 0;
+      const scorePct = games > 0 ? Math.round((score / games) * 1000) / 10 : 0;
+      points.push({
+        gen: e.number,
+        champion,
+        scorePct,
+        games,
+        promoted: e.promoted,
+      });
+      curGen = null;
+    }
   }
 
-  // Compute a reasonable Y-axis domain so the line uses vertical space well.
-  // Add 30-point padding on each side; floor to the nearest 50 below minimum.
-  const eloValues = data.map((d) => d.elo);
-  const minElo = Math.floor((Math.min(...eloValues) - 30) / 50) * 50;
-  const maxElo = Math.ceil((Math.max(...eloValues) + 30) / 50) * 50;
+  return points;
+}
 
+export default function EloChart({ events }: EloChartProps) {
+  const points = buildPoints(events);
+
+  // Y axis: always 0–100 since it's a percentage. A flat 50% line is a
+  // decent visual benchmark for "champion was an even match".
   return (
     <div className="bg-gray-800 rounded-lg p-4 flex flex-col">
       <h2 className="text-xs font-semibold tracking-wider text-gray-400 uppercase mb-3">
-        Elo History
+        Champion Score (round-robin %)
       </h2>
 
-      {finishedEvents.length === 0 ? (
+      {points.length === 0 ? (
         <p className="text-gray-500 text-sm italic mt-2">
           Waiting for first generation to finish…
         </p>
       ) : (
         <ResponsiveContainer width="100%" height={200}>
           <LineChart
-            data={data}
+            data={points}
             margin={{ top: 4, right: 8, left: -10, bottom: 0 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -98,8 +142,9 @@ export default function EloChart({ events }: EloChartProps) {
               }}
             />
             <YAxis
-              domain={[minElo, maxElo]}
+              domain={[0, 100]}
               tick={{ fill: "#9ca3af", fontSize: 11 }}
+              tickFormatter={(v: number) => `${v}%`}
             />
             <Tooltip
               contentStyle={{
@@ -109,16 +154,18 @@ export default function EloChart({ events }: EloChartProps) {
                 color: "#e5e7eb",
                 fontSize: 12,
               }}
-              formatter={(value: number) => [`${value}`, "Elo"]}
+              formatter={(value: number, _name, item) => {
+                const p = item.payload as PerfPoint;
+                return [
+                  `${value}% (${p.games} games)`,
+                  p.promoted ? `${p.champion} (promoted)` : p.champion,
+                ];
+              }}
               labelFormatter={(label) => `Gen ${label}`}
             />
-            {/*
-             * isAnimationActive + animationDuration ensure the line visibly
-             * animates each time a new GenerationFinished event arrives.
-             */}
             <Line
               type="monotone"
-              dataKey="elo"
+              dataKey="scorePct"
               stroke="#3b82f6"
               strokeWidth={2}
               dot={{ fill: "#3b82f6", r: 4 }}
