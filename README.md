@@ -6,6 +6,8 @@
 
 A self-improving chess engine that evolves its own scaffolding via agentic tournament selection.
 
+**Demo:** [youtube.com/watch?v=g2TgF6kXoFA](https://www.youtube.com/watch?v=g2TgF6kXoFA)
+
 ---
 
 ## Overview
