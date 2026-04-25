@@ -34,6 +34,40 @@ class BuilderCompleted(BaseModel):
     error: str | None = None
 
 
+class AdversaryCompleted(BaseModel):
+    """Emitted after the adversary critiques a builder's output.
+
+    ``summary`` is one short sentence (≤ ~140 chars) intended for the
+    dashboard, parsed from the adversary's ``SUMMARY:`` first-line
+    contract. Empty string when the adversary failed or skipped (in
+    which case ``ok`` is false). The full critique paragraph is fed
+    to the fixer but is *not* sent over WS — it would dominate the
+    panel and isn't useful to the operator at scan-speed.
+    """
+
+    type: Literal["adversary.completed"] = "adversary.completed"
+    question_index: int
+    engine_name: str
+    summary: str = ""
+    critique_chars: int = 0
+    ok: bool = False
+
+
+class FixerCompleted(BaseModel):
+    """Emitted after the fixer attempts to revise the builder's code.
+
+    ``ok=False`` means the fixer call failed (LLM error, validator
+    rejection of the revision, etc.) — the original builder code is
+    kept on disk in that case, so the candidate isn't dropped.
+    """
+
+    type: Literal["fixer.completed"] = "fixer.completed"
+    question_index: int
+    engine_name: str
+    ok: bool
+    error: str | None = None
+
+
 class GameMove(BaseModel):
     type: Literal["game.move"] = "game.move"
     game_id: int
@@ -96,6 +130,8 @@ Event = Union[
     GenerationStarted,
     StrategistQuestion,
     BuilderCompleted,
+    AdversaryCompleted,
+    FixerCompleted,
     GameMove,
     GameFinished,
     GenerationFinished,

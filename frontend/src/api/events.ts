@@ -22,6 +22,30 @@ export type BuilderCompleted = {
   error: string | null;
 };
 
+// Emitted after the adversary critiques a builder's output. ``summary``
+// is one short sentence (parsed from the adversary's ``SUMMARY:`` first-
+// line contract) — that's what the dashboard renders below each
+// strategist question. Empty when the adversary failed/skipped.
+export type AdversaryCompleted = {
+  type: "adversary.completed";
+  question_index: number;
+  engine_name: string;
+  summary: string;
+  critique_chars: number;
+  ok: boolean;
+};
+
+// Emitted after the fixer attempts to revise the builder's code.
+// ``ok=false`` means the fixer call failed; the original builder code is
+// kept on disk so the candidate isn't dropped from the cohort.
+export type FixerCompleted = {
+  type: "fixer.completed";
+  question_index: number;
+  engine_name: string;
+  ok: boolean;
+  error: string | null;
+};
+
 export type GameMove = {
   type: "game.move";
   game_id: number;
@@ -74,6 +98,8 @@ export type DarwinEvent =
   | GenerationStarted
   | StrategistQuestion
   | BuilderCompleted
+  | AdversaryCompleted
+  | FixerCompleted
   | GameMove
   | GameFinished
   | GenerationFinished

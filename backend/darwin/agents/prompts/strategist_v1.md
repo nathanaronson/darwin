@@ -19,7 +19,7 @@ the 5 categories):
 
 For each question, give:
 
-  - a concrete hypothesis a builder can implement in ~50 lines of Python
+  - a concrete hypothesis a builder can implement in pure Python
     (no new dependencies, only stdlib + chess + darwin.engines.base +
     darwin.llm)
   - a one-sentence rationale grounded in the history (or first principles

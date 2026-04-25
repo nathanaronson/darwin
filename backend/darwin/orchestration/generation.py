@@ -133,14 +133,14 @@ async def run_generation(
     runner_up_src = _read_source(runner_up) if runner_up else None
     runner_up_name = runner_up.name if runner_up else None
 
-    # Build the strategist's history from prior generations so the
-    # deterministic rotation actually advances and the performance-bias
-    # logic has data. Each entry: ``champion_category`` is the category
-    # whose candidate became this gen's champion (None on retention),
-    # so the strategist can bias toward winning categories. Reading
-    # GenerationRow.champion_after's name prefix recovers the category
-    # from the format ``gen{N}-{cat}-{hash}``; baseline retentions
-    # don't match and yield None.
+    # Build the strategist's history from prior promoted generations.
+    # Each entry: ``champion_category`` is the category whose candidate
+    # became this gen's champion, and ``champion_question_text`` is the
+    # strategist question that produced it — both are fed into the
+    # strategist prompt as the "what's been winning" context. The
+    # category is recovered from ``champion_after``'s ``gen{N}-{cat}-{hash}``
+    # name prefix; retentions (champion_after == champion_before) and
+    # baseline names are skipped since they don't represent a new win.
     import re as _re_local
     _CAT_RE = _re_local.compile(r"^gen\d+-([a-z]+)-")
     with get_session() as s:
@@ -150,10 +150,24 @@ async def run_generation(
         ).all()
         history = []
         for r in prior_rows:
+            if r.champion_after == r.champion_before:
+                continue
             m = _CAT_RE.match(r.champion_after)
+            if not m:
+                continue
+            cat = m.group(1)
+            try:
+                qs = json.loads(r.strategist_questions_json)
+            except (TypeError, ValueError):
+                qs = []
+            text = next(
+                (q.get("text") for q in qs if q.get("category") == cat),
+                None,
+            )
             history.append({
                 "generation": r.number,
-                "champion_category": m.group(1) if m else None,
+                "champion_category": cat,
+                "champion_question_text": text,
             })
 
     questions = await propose_questions(
@@ -217,10 +231,11 @@ async def run_generation(
         # still gets a shot at validation rather than being dropped.
         if settings.enable_adversary:
             engine_name = p.stem.replace("_", "-")
-            critique = ""
+            from darwin.agents.adversary import Critique as _Critique
+            crit = _Critique(summary="", full="")
             try:
                 original_code = p.read_text()
-                critique = await critique_engine(q, original_code, engine_name)
+                crit = await critique_engine(q, original_code, engine_name)
             except Exception as exc:
                 log.warning(
                     "adversary raised q=%d category=%s engine=%s err=%r",
@@ -231,19 +246,20 @@ async def run_generation(
                     "type": "adversary.completed",
                     "question_index": q.index,
                     "engine_name": engine_name,
-                    "critique_chars": len(critique),
-                    "ok": bool(critique),
+                    "summary": crit.summary,
+                    "critique_chars": len(crit.full),
+                    "ok": bool(crit.full),
                 }
             )
 
-            if critique:
+            if crit.full:
                 fixer_ok = True
                 fixer_err: str | None = None
                 try:
                     p = await fix_engine(
                         p,
                         q,
-                        critique,
+                        crit.full,
                         champion_code=primary_src,
                         champion_name=primary.name,
                         generation=generation_number,

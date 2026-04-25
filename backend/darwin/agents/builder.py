@@ -365,7 +365,7 @@ async def build_engine(
         model=settings.builder_model,
         system="You write Python chess engines.",
         user=user,
-        max_tokens=8192,
+        max_tokens=16384,
         tools=[TOOL],
         provider=settings.provider_for("builder"),
     )

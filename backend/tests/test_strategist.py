@@ -1,74 +1,113 @@
-"""Tests for darwin.agents.strategist on the experimental pure-code branch.
-
-The strategist is deterministic now — no LLM calls. Tests cover:
-  - 4 questions returned, one per category in CATEGORIES_USED
-  - All four categories distinct, all from the allowed set
-  - Different generations get different question text (rotation works)
-  - Optional kwargs (champion_code, runner_up_code, champion_question)
-    are accepted without error and don't affect the output
-"""
+"""Tests for darwin.agents.strategist (LLM-based)."""
 
 from __future__ import annotations
+
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from darwin.agents.strategist import (
     CATEGORIES_USED,
-    QUESTION_POOLS,
+    EXAMPLE_IDEAS,
     Question,
     propose_questions,
 )
 
 
 @pytest.mark.asyncio
-async def test_propose_questions_returns_4_distinct_categories():
-    qs = await propose_questions(champion_code="x = 1", history=[])
+async def test_propose_questions_returns_one_per_category():
+    with patch(
+        "darwin.agents.strategist.complete_text",
+        new=AsyncMock(return_value="stub proposal text"),
+    ):
+        qs = await propose_questions(champion_code="x = 1", history=[])
 
-    assert len(qs) == 4
-    categories = [q.category for q in qs]
-    assert len(set(categories)) == 4
-    assert set(categories) == set(CATEGORIES_USED)
+    assert len(qs) == len(CATEGORIES_USED)
+    assert [q.category for q in qs] == list(CATEGORIES_USED)
     assert all(isinstance(q, Question) for q in qs)
-    assert all(len(q.text) >= 20 for q in qs)
+    assert all(q.text == "stub proposal text" for q in qs)
+    assert sorted(q.index for q in qs) == list(range(len(CATEGORIES_USED)))
 
 
 @pytest.mark.asyncio
-async def test_propose_questions_rotates_with_history_length():
-    """Different gen numbers (encoded as len(history)) must hit different
-    pool entries. With pools of size >=4, gen 1 and gen 2 should differ."""
-    qs1 = await propose_questions(champion_code="x = 1", history=[])
-    qs2 = await propose_questions(
-        champion_code="x = 1", history=[{"generation": 1}]
-    )
+async def test_prompt_contains_chosen_category_examples_and_past_wins():
+    captured: list[dict] = []
 
-    movable = [c for c in CATEGORIES_USED if len(QUESTION_POOLS[c]) > 1]
-    assert movable, "expected at least one rotating pool"
+    async def _capture(model, system, user, max_tokens, provider):
+        captured.append({"system": system, "user": user})
+        return "stub"
 
-    cat_to_text_1 = {q.category: q.text for q in qs1}
-    cat_to_text_2 = {q.category: q.text for q in qs2}
-    for cat in movable:
-        assert cat_to_text_1[cat] != cat_to_text_2[cat], (
-            f"category {cat} did not rotate between gen 1 and gen 2"
-        )
+    history = [
+        {
+            "generation": 1,
+            "champion_category": "search",
+            "champion_question_text": "Add iterative deepening to depth 4.",
+        },
+        {
+            "generation": 2,
+            "champion_category": "evaluation",
+            "champion_question_text": "Add a king-safety penalty term.",
+        },
+    ]
+
+    with patch(
+        "darwin.agents.strategist.complete_text", side_effect=_capture
+    ):
+        await propose_questions(champion_code="x = 1", history=history)
+
+    user_prompts_by_category = {
+        cat: captured[i]["user"] for i, cat in enumerate(CATEGORIES_USED)
+    }
+
+    for cat, prompt in user_prompts_by_category.items():
+        assert f"Category: {cat}" in prompt
+        assert "Add iterative deepening to depth 4." in prompt
+        assert "Add a king-safety penalty term." in prompt
+        for example in EXAMPLE_IDEAS[cat]:
+            assert example in prompt
+        # Examples for *other* categories should not leak in.
+        for other in CATEGORIES_USED:
+            if other == cat:
+                continue
+            for example in EXAMPLE_IDEAS[other]:
+                assert example not in prompt
 
 
 @pytest.mark.asyncio
-async def test_propose_questions_accepts_optional_kwargs():
-    """The signature retains the LLM-era kwargs for orchestrator
-    compatibility, but they're ignored in the deterministic path."""
-    qs_no_extras = await propose_questions(champion_code="x = 1", history=[])
-    qs_with_extras = await propose_questions(
-        champion_code="x = 1",
-        history=[],
-        runner_up_code="y = 2",
-        champion_question={"category": "search", "text": "old question"},
-    )
+async def test_prompt_handles_empty_history():
+    captured: list[str] = []
 
-    assert [q.text for q in qs_no_extras] == [q.text for q in qs_with_extras]
+    async def _capture(model, system, user, max_tokens, provider):
+        captured.append(user)
+        return "stub"
+
+    with patch(
+        "darwin.agents.strategist.complete_text", side_effect=_capture
+    ):
+        await propose_questions(champion_code="x = 1", history=[])
+
+    assert captured, "expected at least one LLM call"
+    for prompt in captured:
+        assert "(no prior winners yet)" in prompt
 
 
 @pytest.mark.asyncio
-async def test_propose_questions_index_field_is_unique():
-    qs = await propose_questions(champion_code="x = 1", history=[])
-    indexes = [q.index for q in qs]
-    assert sorted(indexes) == list(range(len(qs)))
+async def test_calls_run_in_parallel():
+    """All category prompts dispatch through asyncio.gather, so the total
+    latency should be ~one call's worth, not the sum."""
+    import asyncio
+    import time
+
+    async def _slow(model, system, user, max_tokens, provider):
+        await asyncio.sleep(0.1)
+        return "stub"
+
+    with patch(
+        "darwin.agents.strategist.complete_text", side_effect=_slow
+    ):
+        t0 = time.monotonic()
+        await propose_questions(champion_code="x = 1", history=[])
+        elapsed = time.monotonic() - t0
+
+    # 4 sequential calls would take ~0.4s; gathered should take ~0.1s.
+    assert elapsed < 0.3, f"calls did not run in parallel (took {elapsed:.2f}s)"

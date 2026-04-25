@@ -8,6 +8,7 @@ import type {
   DarwinEvent,
   StrategistQuestion,
   BuilderCompleted,
+  AdversaryCompleted,
 } from "../api/events";
 import { PanelHead, EmptyPlot } from "./LiveBoards";
 
@@ -44,9 +45,16 @@ export default function StrategistFeed({ events }: StrategistFeedProps) {
   const builders = currentEvents.filter(
     (e): e is BuilderCompleted => e.type === "builder.completed",
   );
+  const adversaries = currentEvents.filter(
+    (e): e is AdversaryCompleted => e.type === "adversary.completed",
+  );
 
   const builderFor = (index: number): BuilderCompleted | undefined =>
     builders.find((b) => b.question_index === index);
+  const adversaryFor = (
+    index: number,
+  ): AdversaryCompleted | undefined =>
+    adversaries.find((a) => a.question_index === index);
 
   return (
     <div className="panel flex flex-col p-6">
@@ -71,6 +79,7 @@ export default function StrategistFeed({ events }: StrategistFeedProps) {
               key={q.index}
               question={q}
               builder={builderFor(q.index)}
+              adversary={adversaryFor(q.index)}
               ordinal={i + 1}
             />
           ))}
@@ -83,10 +92,16 @@ export default function StrategistFeed({ events }: StrategistFeedProps) {
 interface QuestionCardProps {
   question: StrategistQuestion;
   builder: BuilderCompleted | undefined;
+  adversary: AdversaryCompleted | undefined;
   ordinal: number;
 }
 
-function QuestionCard({ question, builder, ordinal }: QuestionCardProps) {
+function QuestionCard({
+  question,
+  builder,
+  adversary,
+  ordinal,
+}: QuestionCardProps) {
   const dot = CATEGORY_DOT[question.category];
   const settled = builder !== undefined;
 
@@ -129,6 +144,8 @@ function QuestionCard({ question, builder, ordinal }: QuestionCardProps) {
             {question.text}
           </p>
 
+          <AdversarySummary adversary={adversary} />
+
           {builder?.ok && (
             <p
               className="font-mono-tab mt-2 truncate text-[11.5px]"
@@ -161,6 +178,45 @@ function QuestionCard({ question, builder, ordinal }: QuestionCardProps) {
         <StatusGlyph builder={builder} settled={settled} />
       </div>
     </li>
+  );
+}
+
+/**
+ * Small italic line under each strategist question showing the
+ * adversary's one-sentence verdict. Renders three states:
+ *   - in-flight (no event yet): low-key "critique pending…" placeholder
+ *   - skipped/failed (`ok=false`, no summary): nothing
+ *   - settled with a summary: the summary text
+ */
+function AdversarySummary({
+  adversary,
+}: {
+  adversary: AdversaryCompleted | undefined;
+}) {
+  if (!adversary) {
+    return (
+      <p
+        className="mt-1.5 text-[11px] italic"
+        style={{ color: "var(--ink-faint)" }}
+      >
+        critique pending…
+      </p>
+    );
+  }
+  if (!adversary.summary) {
+    return null;
+  }
+  return (
+    <p
+      className="mt-1.5 text-[12px] italic leading-snug"
+      style={{ color: "var(--ink-faint)" }}
+      title={`adversary critique (${adversary.critique_chars} chars total)`}
+    >
+      <span style={{ color: "var(--bronze-300)", fontStyle: "normal" }}>
+        adversary:
+      </span>{" "}
+      {adversary.summary}
+    </p>
   );
 }
 

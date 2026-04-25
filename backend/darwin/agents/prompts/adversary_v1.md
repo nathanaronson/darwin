@@ -52,10 +52,24 @@ ENGINE CODE TO CRITIQUE:
 {engine_code}
 ```
 
-Output: a single tight paragraph (4-8 sentences). Lead with the
-single most important issue. List up to 3 specific concrete
-problems, each with a one-sentence fix the builder can apply
-without rewriting the engine. Plain English, no JSON, no headers,
-no bullet points — the fixer will read this verbatim. If the code
-is genuinely solid for the question, say so plainly in one
-sentence; do NOT invent problems to look thorough.
+Output format (exact, no deviation — server parses this):
+
+  Line 1 MUST be: `SUMMARY: <exactly two sentences, ≤ 220 chars total>`
+  Line 2 MUST be blank.
+  Lines 3+ are the full critique paragraph (4-8 sentences).
+
+The SUMMARY line is rendered in the dashboard next to the strategist's
+question. Sentence 1: the single most important issue, present tense,
+no "The engine…" preamble (e.g. "Quiescence has no depth bound."). Sentence 2: the
+fix in one short clause, also present tense (e.g. "Cap the recursion at depth 4 and
+use a static-eval cutoff."). Both sentences fit on the SUMMARY line —
+do NOT split across lines.
+
+The full critique paragraph that follows is fed verbatim to the fixer.
+Lead with the same most important issue. List up to 3 specific
+concrete problems, each with a one-sentence fix the builder can apply
+without rewriting the engine. Plain English, no JSON, no extra
+headers, no bullet points. If the code is genuinely solid for the
+question, write `SUMMARY: Code looks solid for this question. No
+revision needed.` on line 1 and explain plainly in the paragraph
+below; do NOT invent problems to look thorough.

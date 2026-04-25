@@ -67,7 +67,6 @@ REQUIREMENTS
   - The module MUST end with the literal line: `engine = YourEngineClass()`
     (registry imports this top-level symbol). Without it `load_engine`
     raises `AttributeError` and the candidate is dropped.
-  - Stay under 100 lines of code total.
   - Allowed imports ONLY:
         - the Python standard library (random, math, time, asyncio, ...)
         - `chess`            (python-chess move generator + board)
