@@ -57,10 +57,14 @@ async def run_generation(
     # + smoke run (~25-30s of compute), so by the time the tournament
     # actually dispatches the warm pool is ready and tournament wall-
     # clock skips cold-start entirely. No-op on local backend.
-    # Pool size: 4 (matches typical cohort 1 incumbent + 4 candidates =
-    # 5 engines × 4 ordered pairs = 20 games, where 4 always-warm
-    # + memory-snapshot starts for the rest is the sweet spot).
-    await warm_modal_pool(4)
+    #
+    # Pool size: 20. Worst-case round-robin with 2 incumbents + 4
+    # candidates = 6 engines × 5 ordered pairs × games_per_pairing=1
+    # = 30 games. With 20 warm containers, the first 20 games hit
+    # warm (no cold-start), the remaining 10 hit memory-snapshot
+    # cold (~1-2s each, also concurrent). Cost: 20 idle containers
+    # for the ~30s of strategist/builder/smoke compute = ~$0.01/run.
+    await warm_modal_pool(20)
 
     await bus.emit(
         {
@@ -370,6 +374,14 @@ async def run_generation_task() -> None:
                 if len(top_names) >= 2:
                     break
 
+            log.info(
+                "lineage candidates for gen=%d top_names=%s "
+                "(scores: %s)",
+                next_number,
+                top_names,
+                {n: round(scores[n], 1) for n in top_names if n in scores},
+            )
+
             incumbents = []
             for name in top_names:
                 row = s.exec(
@@ -379,17 +391,21 @@ async def run_generation_task() -> None:
                     if name == "baseline-v0":
                         from cubist.engines.baseline import engine as baseline
                         incumbents.append(baseline)
+                        log.info("loaded incumbent %s (baseline import)", name)
                     else:
                         log.warning(
-                            "skipping incumbent %s — no EngineRow found",
+                            "DROPPED incumbent %s — no EngineRow found "
+                            "(this is why next-gen cohort is smaller than expected)",
                             name,
                         )
                     continue
                 try:
                     incumbents.append(load_engine(row.code_path))
+                    log.info("loaded incumbent %s from %s", name, row.code_path)
                 except Exception as e:
                     log.warning(
-                        "skipping incumbent %s — load_engine failed: %r",
+                        "DROPPED incumbent %s — load_engine failed: %r "
+                        "(this is why next-gen cohort is smaller than expected)",
                         name, e,
                     )
 
