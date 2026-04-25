@@ -8,10 +8,11 @@ import asyncio
 import inspect
 import json
 import logging
+import re
 from datetime import datetime
 
 from cubist.agents.builder import build_engine, validate_engine
-from cubist.agents.strategist import propose_questions
+from cubist.agents.strategist import CATEGORIES, propose_questions
 from cubist.api.websocket import bus
 from cubist.config import settings
 from cubist.engines.base import Engine
@@ -23,9 +24,55 @@ from cubist.tournament.selection import select_top_n
 
 log = logging.getLogger("cubist.orchestration")
 
+# Mirrors builder.py's engine_name format: ``gen{N}-{category}-{6 char sha1}``.
+# Used to recover which category produced a promotion when looking up the
+# question that produced the current champion.
+_WINNING_CATEGORY_RE = re.compile(
+    r"^gen\d+-(" + "|".join(CATEGORIES) + r")-"
+)
+
 
 def _read_source(engine: Engine) -> str:
     return inspect.getsource(type(engine))
+
+
+def _champion_question(before_generation: int) -> dict | None:
+    """Return the strategist question that produced the current champion.
+
+    Queries the most recent prior generation that promoted (champion_after
+    differs from champion_before), parses the winning category from the
+    new champion's name, and returns the matching question from that
+    generation's strategist questions. ``None`` when no prior promotion
+    exists (champion is still the baseline) or the name doesn't conform
+    to the ``gen{N}-{cat}-{hash}`` format.
+    """
+    if before_generation <= 1:
+        return None
+    with get_session() as s:
+        from sqlmodel import select
+
+        rows = s.exec(
+            select(GenerationRow)
+            .where(GenerationRow.number < before_generation)
+            .order_by(GenerationRow.number.desc())
+        ).all()
+
+    for r in rows:
+        if r.champion_after == r.champion_before:
+            continue
+        m = _WINNING_CATEGORY_RE.match(r.champion_after)
+        if not m:
+            return None
+        cat = m.group(1)
+        try:
+            questions = json.loads(r.strategist_questions_json)
+        except (TypeError, ValueError):
+            return None
+        for q in questions:
+            if q.get("category") == cat:
+                return {"category": cat, "text": q.get("text", "")}
+        return None
+    return None
 
 
 async def run_generation(
@@ -65,7 +112,10 @@ async def run_generation(
     runner_up_name = runner_up.name if runner_up else None
 
     questions = await propose_questions(
-        primary_src, [], runner_up_code=runner_up_src
+        primary_src,
+        [],
+        runner_up_code=runner_up_src,
+        champion_question=_champion_question(generation_number),
     )
     for q in questions:
         await bus.emit(

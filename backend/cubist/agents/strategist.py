@@ -63,6 +63,7 @@ async def propose_questions(
     champion_code: str,
     history: list[dict],
     runner_up_code: str | None = None,
+    champion_question: dict | None = None,
 ) -> list[Question]:
     """Return 4 distinct improvement questions across the locked categories.
 
@@ -76,6 +77,11 @@ async def propose_questions(
             if any. Passed alongside the champion so the strategist sees
             both surviving designs and can ask questions that play to
             the gap between them. ``None`` on the very first generation.
+        champion_question: the strategist question whose answer produced the
+            current champion, as ``{"category", "text"}``. ``None`` when the
+            champion is the deterministic baseline (no prior question).
+            Surfaced so the strategist doesn't have to chain through history
+            to identify what improvement it's building on top of.
 
     Returns:
         Length-4 list of ``Question`` records, deduplicated by category.
@@ -89,8 +95,17 @@ async def propose_questions(
         if runner_up_code is not None
         else "(no runner-up — first generation, only baseline-v0 available)"
     )
+    if champion_question:
+        cq_text = (
+            f"category: {champion_question['category']}\n\n"
+            f"{champion_question['text']}"
+        )
+    else:
+        cq_text = "(none — current champion is the deterministic baseline)"
+
     user = PROMPT.format(
         champion_code=champion_code,
+        champion_question=cq_text,
         runner_up_code=runner_up_block,
         history_json=json.dumps(history, indent=2),
     )
