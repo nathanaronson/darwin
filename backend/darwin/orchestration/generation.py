@@ -105,13 +105,14 @@ async def run_generation(
     # actually dispatches the warm pool is ready and tournament wall-
     # clock skips cold-start entirely. No-op on local backend.
     #
-    # Pool size: 20. Worst-case round-robin with 2 incumbents + 4
-    # candidates = 6 engines × 5 ordered pairs × games_per_pairing=1
-    # = 30 games. With 20 warm containers, the first 20 games hit
-    # warm (no cold-start), the remaining 10 hit memory-snapshot
-    # cold (~1-2s each, also concurrent). Cost: 20 idle containers
-    # for the ~30s of strategist/builder/smoke compute = ~$0.01/run.
-    await warm_modal_pool(20)
+    # Pool size: 40. With games_per_pairing=3 and a 6-engine cohort,
+    # the round-robin schedules 6×5×3 = 90 games. 40 warm containers
+    # cover the leading edge; the remaining ~50 ride memory-snapshot
+    # cold-starts (~1-2s each, parallel) and Modal's queue picks them
+    # up as warm containers free up. Going beyond 40 hits diminishing
+    # returns (the queue model handles overflow well) and adds idle
+    # cost during the ~30s strategist/builder/smoke window.
+    await warm_modal_pool(40)
 
     await bus.emit(
         {

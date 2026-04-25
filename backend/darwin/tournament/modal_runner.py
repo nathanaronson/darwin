@@ -65,7 +65,7 @@ events_queue = modal.Queue.from_name("darwin-events", create_if_missing=True)
     # Cap concurrency to 40 — handles 4 candidates + 1 incumbent =
     # 5 engines × 4 ordered pairs × games_per_pairing=2 = 40-game
     # worst-case round-robins without queuing.
-    max_containers=40,
+    max_containers=100,
     # No idle containers by default — zero baseline cost. Toggle warm
     # pool on demand via:
     #   modal app keep-warm darwin-tournament play_game_remote N

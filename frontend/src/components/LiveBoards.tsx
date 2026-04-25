@@ -16,7 +16,13 @@ interface LiveBoardsProps {
   events: DarwinEvent[];
 }
 
-const MAX_BOARDS = 16;
+// Show only 2 boards live. The full tournament can have 90-800 games
+// concurrent; rendering all of them is unreadable and CPU-heavy. Two
+// boards is enough for the demo to feel "alive" (latest moves come in,
+// games rotate as they finish), and the bracket panel separately shows
+// every game's result. Sorted by most-recent activity (see below) so
+// the boards always show whatever's actively making moves.
+const MAX_BOARDS = 2;
 
 interface GameState {
   game_id: number;
@@ -131,8 +137,20 @@ export default function LiveBoards({ events }: LiveBoardsProps) {
       }
     }
 
+    // Sort by most-recent-activity descending so the visible boards
+    // are always whatever's actively making moves. With MAX_BOARDS=2,
+    // this means: as games finish or stall, fresher games slide in.
+    // Within the same recency bucket, prefer in-progress games over
+    // finished ones so a board that just hit checkmate doesn't hog
+    // the slot while other games are still being played.
     return Array.from(map.values())
-      .sort((a, b) => a.game_id - b.game_id)
+      .sort((a, b) => {
+        // Unfinished games rank above finished games.
+        if (a.finished !== b.finished) return a.finished ? 1 : -1;
+        // Within the same finished/unfinished bucket, more recent
+        // activity wins.
+        return b.last_event_idx - a.last_event_idx;
+      })
       .slice(0, MAX_BOARDS);
   }, [events]);
 
