@@ -194,14 +194,39 @@ export default function LiveBoards({ events }: LiveBoardsProps) {
     const isDecisive = (g: GameState) =>
       g.finished && (g.result === "1-0" || g.result === "0-1");
     const isDraw = (g: GameState) => g.finished && !isDecisive(g);
-    const visibleGames = Array.from(map.values())
-      .sort((a, b) => {
-        if (a.finished !== b.finished) return a.finished ? 1 : -1;
-        if (isDecisive(a) !== isDecisive(b)) return isDecisive(a) ? -1 : 1;
-        if (isDraw(a) !== isDraw(b)) return isDraw(a) ? 1 : -1;
-        return a.game_id - b.game_id;
-      })
-      .slice(0, MAX_BOARDS);
+    const sortedGames = Array.from(map.values()).sort((a, b) => {
+      if (a.finished !== b.finished) return a.finished ? 1 : -1;
+      if (isDecisive(a) !== isDecisive(b)) return isDecisive(a) ? -1 : 1;
+      if (isDraw(a) !== isDraw(b)) return isDraw(a) ? 1 : -1;
+      return a.game_id - b.game_id;
+    });
+
+    // Dedupe by unordered engine pair so the panel shows distinct
+    // matchups rather than 3 near-identical replays of the same pair
+    // (each ordered pair plays GAMES_PER_PAIRING=3 games, and the
+    // deterministic LLM-built engines reach the same positions every
+    // time). Two-pass fill: first pass takes one game per pair (in
+    // sort priority order); second pass fills any remaining slots
+    // from leftover games when the cohort is small enough that there
+    // aren't MAX_BOARDS distinct pairs available.
+    const pairKey = (g: GameState) =>
+      [g.white, g.black].sort().join("|");
+    const seenPairs = new Set<string>();
+    const firstPass: GameState[] = [];
+    const overflow: GameState[] = [];
+    for (const g of sortedGames) {
+      const k = pairKey(g);
+      if (seenPairs.has(k)) {
+        overflow.push(g);
+      } else {
+        seenPairs.add(k);
+        firstPass.push(g);
+      }
+    }
+    const visibleGames = [
+      ...firstPass.slice(0, MAX_BOARDS),
+      ...overflow.slice(0, Math.max(0, MAX_BOARDS - firstPass.length)),
+    ];
 
     return {
       games: visibleGames,
