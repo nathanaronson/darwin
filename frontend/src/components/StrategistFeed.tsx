@@ -26,6 +26,10 @@ const CATEGORY_DOT: Record<StrategistQuestion["category"], string> = {
   search: "#7d8aa0",
   evaluation: "var(--bronze-300)",
   sampling: "var(--moss-300)",
+  quiescence: "#5a6b80",
+  timing: "var(--bronze-700)",
+  heuristics: "var(--moss-700)",
+  endgame: "#8a6a47",
 };
 
 export default function StrategistFeed({ events }: StrategistFeedProps) {
