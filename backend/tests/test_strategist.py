@@ -69,15 +69,55 @@ async def test_propose_questions_dedupes_repeated_category(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_propose_questions_rejects_no_tool_use(monkeypatch):
-    """Plain text reply without a tool_use block must surface a clear error."""
+async def test_propose_questions_parses_json_without_tool_use(monkeypatch):
+    """Gemini may return schema-shaped text instead of a tool call."""
+
+    payload = {
+        "questions": [
+            {"category": cat, "text": f"valid fallback question for {cat} category"}
+            for cat in CATEGORIES
+        ]
+    }
+
+    async def fake_complete(**kwargs):
+        return [_fake_text_block(f"```json\n{payload!r}\n```".replace("'", '"'))]
+
+    monkeypatch.setattr("cubist.agents.strategist.complete", fake_complete)
+
+    qs = await propose_questions(champion_code="x = 1", history=[])
+
+    assert len(qs) == 5
+    assert {q.category for q in qs} == set(CATEGORIES)
+
+
+@pytest.mark.asyncio
+async def test_propose_questions_parses_labeled_text_without_tool_use(monkeypatch):
+    """Plain labeled text is accepted as a second fallback."""
+    text = "\n".join(
+        f"{cat}: valid fallback question for {cat} category" for cat in CATEGORIES
+    )
+
+    async def fake_complete(**kwargs):
+        return [_fake_text_block(text)]
+
+    monkeypatch.setattr("cubist.agents.strategist.complete", fake_complete)
+
+    qs = await propose_questions(champion_code="x = 1", history=[])
+
+    assert len(qs) == 5
+    assert {q.category for q in qs} == set(CATEGORIES)
+
+
+@pytest.mark.asyncio
+async def test_propose_questions_rejects_unparseable_no_tool_use(monkeypatch):
+    """Unstructured text without a tool_use block still surfaces a clear error."""
 
     async def fake_complete(**kwargs):
         return [_fake_text_block("I refuse to use the tool.")]
 
     monkeypatch.setattr("cubist.agents.strategist.complete", fake_complete)
 
-    with pytest.raises(RuntimeError, match="tool_use"):
+    with pytest.raises(RuntimeError, match="parseable questions"):
         await propose_questions(champion_code="x = 1", history=[])
 
 

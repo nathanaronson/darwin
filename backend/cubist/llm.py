@@ -86,6 +86,18 @@ def _gemini_tools(tools: list[dict] | None) -> list[genai_types.Tool] | None:
     return [genai_types.Tool(function_declarations=declarations)]
 
 
+def _gemini_tool_config(tools: list[dict] | None) -> genai_types.ToolConfig | None:
+    if not tools:
+        return None
+
+    return genai_types.ToolConfig(
+        function_calling_config=genai_types.FunctionCallingConfig(
+            mode=genai_types.FunctionCallingConfigMode.ANY,
+            allowed_function_names=[tool["name"] for tool in tools],
+        )
+    )
+
+
 def _gemini_blocks(response: genai_types.GenerateContentResponse) -> list[TextBlock | ToolUseBlock]:
     blocks: list[TextBlock | ToolUseBlock] = []
     for candidate in response.candidates or []:
@@ -174,6 +186,7 @@ async def _complete_gemini(
         max_output_tokens=max_tokens,
         system_instruction=system or None,
         tools=_gemini_tools(tools),
+        tool_config=_gemini_tool_config(tools),
     )
 
     backoff = 1.0

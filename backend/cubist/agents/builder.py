@@ -11,6 +11,7 @@ engine doesn't crash.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from pathlib import Path
 
@@ -58,6 +59,59 @@ FORBIDDEN = re.compile(
 )
 
 
+def _json_candidates(text: str) -> list[str]:
+    candidates = [text.strip()]
+    candidates.extend(
+        match.group(1).strip()
+        for match in re.finditer(r"```(?:json)?\s*(.*?)```", text, flags=re.DOTALL | re.I)
+    )
+
+    first_obj, last_obj = text.find("{"), text.rfind("}")
+    if first_obj != -1 and last_obj != -1 and first_obj < last_obj:
+        candidates.append(text[first_obj : last_obj + 1])
+
+    return candidates
+
+
+def _code_from_text(text: str) -> str | None:
+    for candidate in _json_candidates(text):
+        try:
+            data = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict) and isinstance(data.get("code"), str):
+            return data["code"]
+
+    for match in re.finditer(r"```(?:python|py)?\s*(.*?)```", text, flags=re.DOTALL | re.I):
+        code = match.group(1).strip()
+        if "engine =" in code:
+            return code
+
+    stripped = text.strip()
+    if "engine =" in stripped:
+        starts = [
+            index
+            for token in ("from ", "import ", "class ")
+            if (index := stripped.find(token)) != -1
+        ]
+        if starts:
+            return stripped[min(starts) :]
+
+    return None
+
+
+def _write_engine(code: str, engine_name: str, safe_filename: str) -> Path:
+    if FORBIDDEN.search(code):
+        raise ValueError(
+            f"builder code contains forbidden import / call "
+            f"(engine={engine_name})"
+        )
+    GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+    out = GENERATED_DIR / safe_filename
+    out.write_text(code)
+    return out
+
+
 async def build_engine(
     champion_code: str,
     champion_name: str,
@@ -92,6 +146,11 @@ async def build_engine(
         generation=generation,
         champion_name=champion_name,
     )
+    user += (
+        "\n\nReturn the result by calling the `submit_engine` tool. "
+        "If tool calling is unavailable, return exactly one fenced Python "
+        "code block containing the full engine module and no extra prose."
+    )
 
     content = await complete(
         model=settings.builder_model,
@@ -103,18 +162,17 @@ async def build_engine(
 
     for block in content:
         if getattr(block, "type", None) == "tool_use" and block.name == "submit_engine":
-            code = block.input["code"]
-            if FORBIDDEN.search(code):
-                raise ValueError(
-                    f"builder code contains forbidden import / call "
-                    f"(engine={engine_name})"
-                )
-            GENERATED_DIR.mkdir(parents=True, exist_ok=True)
-            out = GENERATED_DIR / safe_filename
-            out.write_text(code)
-            return out
+            return _write_engine(block.input["code"], engine_name, safe_filename)
 
-    raise RuntimeError("builder did not return tool_use")
+    text = "\n".join(
+        block.text for block in content if getattr(block, "type", None) == "text" and block.text
+    )
+    code = _code_from_text(text)
+    if code is not None:
+        return _write_engine(code, engine_name, safe_filename)
+
+    excerpt = text[:200].replace("\n", " ")
+    raise RuntimeError(f"builder did not return tool_use or parseable code: {excerpt!r}")
 
 
 async def validate_engine(module_path: Path) -> tuple[bool, str | None]:
