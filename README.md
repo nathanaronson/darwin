@@ -89,6 +89,23 @@ At minimum: `ANTHROPIC_API_KEY` (or `GOOGLE_API_KEY` if `LLM_PROVIDER=gemini`). 
 
 ---
 
+## Distributed tournaments via Modal
+
+Tournaments default to `TOURNAMENT_BACKEND=local` (one process, `asyncio.gather`-capped at `MAX_PARALLEL_GAMES`). Flip to `TOURNAMENT_BACKEND=modal` and each game is dispatched to its own [Modal](https://modal.com) container — real OS-level parallel, no GIL — turning a ~130 s round-robin into ~10–20 s wall-clock.
+
+The orchestrator pre-warms 40 containers when a generation starts, drains a shared `modal.Queue` of move events back onto the local bus so the dashboard streams live, synthesizes a draw + `termination=error` when a container hits its 30 s timeout (so the rest of the cohort still scores fairly), and falls back to `local` automatically on any Modal-side error.
+
+One-time setup:
+
+```bash
+uv run modal token new                                            # auth
+uv run modal deploy backend/darwin/tournament/modal_runner.py     # deploy the app
+```
+
+Re-deploy whenever the `darwin` package changes. App definition: [`backend/darwin/tournament/modal_runner.py`](./backend/darwin/tournament/modal_runner.py); dispatch + drainer: [`backend/darwin/tournament/runner.py`](./backend/darwin/tournament/runner.py); deeper notes in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md#optional-modal-backend).
+
+---
+
 ## Development process
 
 We parallelized the workload across each other — see [`docs/PROCESS.md`](./docs/PROCESS.md) and [`plans/`](./plans/) for details.
