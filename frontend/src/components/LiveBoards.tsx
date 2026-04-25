@@ -9,6 +9,7 @@
  */
 
 import { useMemo } from "react";
+import type { ReactNode } from "react";
 import { Chessboard } from "react-chessboard";
 import type { DarwinEvent, GameMove, GameFinished } from "../api/events";
 
@@ -167,17 +168,50 @@ export default function LiveBoards({ events }: LiveBoardsProps) {
     };
   }, [events]);
 
-  // Header meta — counts are accurate to the full game set (not just
-  // the 2 visible boards). Concise: "47 running · 43 done" if both
-  // exist; either alone if not.
+  // Header meta — counts accurate to the full game set, color-coded so
+  // status reads at a glance: amber/pulsing for running, green for done,
+  // dim for the "/total" denominator. Done count includes synthesized
+  // forfeits (termination=error), so it grows steadily even if some
+  // candidates time out.
   const totalGames = runningCount + doneCount;
-  const meta = totalGames === 0
-    ? "no games yet"
-    : runningCount > 0 && doneCount > 0
-      ? `${runningCount} running · ${doneCount} done · ${totalGames} total`
-      : runningCount > 0
-        ? `${runningCount} running`
-        : `${doneCount} done`;
+  let meta: ReactNode;
+  if (totalGames === 0) {
+    meta = (
+      <span style={{ color: "var(--ink-faint)" }}>no games yet</span>
+    );
+  } else {
+    meta = (
+      <span className="inline-flex items-center gap-2 normal-case tracking-normal">
+        {runningCount > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            {/* Pulsing dot — visual heartbeat that the tournament is alive */}
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ backgroundColor: "#fbbf24" }}
+            />
+            <span style={{ color: "#fbbf24" }} className="font-semibold">
+              {runningCount}
+            </span>
+            <span style={{ color: "var(--ink-faint)" }}>running</span>
+          </span>
+        )}
+        {runningCount > 0 && doneCount > 0 && (
+          <span style={{ color: "var(--ink-faint)" }}>·</span>
+        )}
+        {doneCount > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <span style={{ color: "#10b981" }} className="font-semibold">
+              {doneCount}
+            </span>
+            <span style={{ color: "var(--ink-faint)" }}>done</span>
+          </span>
+        )}
+        <span style={{ color: "var(--ink-faint)" }}>
+          / {totalGames}
+        </span>
+      </span>
+    );
+  }
 
   return (
     <div className="panel p-6">
@@ -215,7 +249,9 @@ export function PanelHead({
   /** Optional small-caps label above the title. Omit for a tighter head. */
   eyebrow?: string;
   title: string;
-  meta?: string;
+  /** Right-aligned meta. ReactNode so panels can render colored counters,
+   *  pulsing dots, etc. — strings still work as before. */
+  meta?: ReactNode;
 }) {
   return (
     <div>
