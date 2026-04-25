@@ -48,15 +48,16 @@ interface LiveBoardsProps {
   events: DarwinEvent[];
 }
 
-// Show 4 boards live. Bracket panel separately shows every game's
-// result, so we don't need to render all 90-800 here. Sorted by
-// game_id ascending among unfinished games (NOT by most-recent
-// activity) so the visible slots are STABLE: a board only changes
-// when its game finishes, not every time some other game emits a
-// move. Activity-sort caused a "glitch" effect with 36 concurrent
-// games — every move bumped a different game to position #0 and
-// the visible boards swapped every few hundred ms.
-const MAX_BOARDS = 4;
+// Show 8 boards live, laid out 2 rows × 4 cols at the dashboard's
+// max width by the auto-fit grid. Bracket panel separately shows
+// every game's result, so we don't need to render all 90-800 here.
+// Sorted by game_id ascending among unfinished games (NOT by most-
+// recent activity) so the visible slots are STABLE: a board only
+// changes when its game finishes, not every time some other game
+// emits a move. Activity-sort caused a "glitch" effect with 36
+// concurrent games — every move bumped a different game to position
+// #0 and the visible boards swapped every few hundred ms.
+const MAX_BOARDS = 8;
 
 interface GameState {
   game_id: number;
