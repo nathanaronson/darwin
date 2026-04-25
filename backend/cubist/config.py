@@ -1,10 +1,19 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file="../.env", extra="ignore")
 
+    # LLM provider — selects which SDK handles every complete() call.
+    # "claude" uses Anthropic (ANTHROPIC_API_KEY); "gemini" uses Google
+    # GenAI (GOOGLE_API_KEY). Switching providers does NOT rewrite model
+    # IDs below — set them to provider-appropriate values in .env.
+    llm_provider: Literal["claude", "gemini"] = "claude"
+
     anthropic_api_key: str = ""
+    google_api_key: str = ""
 
     strategist_model: str = "claude-opus-4-6"
     player_model: str = "claude-sonnet-4-6"

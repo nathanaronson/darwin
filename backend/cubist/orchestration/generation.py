@@ -1,13 +1,16 @@
 """The big loop: one generation end-to-end.
 
-strategist -> 5 builders (parallel) -> validator -> tournament -> selection
+strategist -> 2 builders (parallel) -> validator -> tournament -> selection
 -> persist + emit events.
 """
 
 import asyncio
 import inspect
 import json
+import logging
 from datetime import datetime
+
+log = logging.getLogger("cubist.orchestration")
 
 from cubist.agents.builder import build_engine, validate_engine
 from cubist.agents.strategist import propose_questions
@@ -142,7 +145,14 @@ async def run_generation(champion: Engine, generation_number: int) -> Engine:
 
 
 async def run_generation_task() -> None:
-    """Triggered by the API. Loads current champion from DB, runs one generation."""
+    """Triggered by the API. Loads current champion from DB, runs one generation.
+
+    Wrapped in a top-level try/except so a crash in any sub-step is logged
+    with a full traceback AND surfaced to the UI via a terminal
+    ``generation.finished`` event (``promoted=False``). Without this the
+    asyncio Task just dies, the dashboard hangs on "running", and we have
+    to grep honcho's stdout to find out what went wrong.
+    """
     from cubist.engines.baseline import engine as baseline
 
     with get_session() as s:
@@ -153,4 +163,18 @@ async def run_generation_task() -> None:
         ).first()
         next_number = (last.number + 1) if last else 1
 
-    await run_generation(baseline, next_number)
+    log.info("run_generation_task starting generation=%d", next_number)
+    try:
+        await run_generation(baseline, next_number)
+        log.info("run_generation_task finished generation=%d", next_number)
+    except Exception:
+        log.exception("run_generation_task crashed generation=%d", next_number)
+        await bus.emit(
+            {
+                "type": "generation.finished",
+                "number": next_number,
+                "new_champion": baseline.name,
+                "elo_delta": 0.0,
+                "promoted": False,
+            }
+        )

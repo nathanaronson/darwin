@@ -31,7 +31,7 @@ export function startMockStream(onEvent: (e: CubistEvent) => void): () => void {
       event: { type: "generation.started", number: 1, champion: "baseline-v0" },
     },
 
-    // ── Strategist phase: 5 improvement hypotheses proposed by the LLM ───
+    // ── Strategist phase: 2 improvement hypotheses proposed by the LLM ───
     {
       delay: 900,
       event: {
@@ -50,36 +50,8 @@ export function startMockStream(onEvent: (e: CubistEvent) => void): () => void {
         text: "Would prompting for threat detection first improve tactics?",
       },
     },
-    {
-      delay: 700,
-      event: {
-        type: "strategist.question",
-        index: 2,
-        category: "search",
-        text: "Would 1-ply lookahead with LLM eval beat raw move selection?",
-      },
-    },
-    {
-      delay: 700,
-      event: {
-        type: "strategist.question",
-        index: 3,
-        category: "evaluation",
-        text: "Would scoring positions before moving improve endgames?",
-      },
-    },
-    {
-      delay: 700,
-      event: {
-        type: "strategist.question",
-        index: 4,
-        category: "sampling",
-        text: "Would majority vote across 3 LLM samples reduce move variance?",
-      },
-    },
 
     // ── Builder phase: candidate engines generated (one per question) ─────
-    // question_index 2 (search) fails due to a smoke-game timeout
     {
       delay: 2200,
       event: {
@@ -96,36 +68,6 @@ export function startMockStream(onEvent: (e: CubistEvent) => void): () => void {
         type: "builder.completed",
         question_index: 1,
         engine_name: "gen1-prompt-b1d",
-        ok: true,
-        error: null,
-      },
-    },
-    {
-      delay: 600,
-      event: {
-        type: "builder.completed",
-        question_index: 2,
-        engine_name: "gen1-search-c2e",
-        ok: false,
-        error: "smoke game timeout after 20 s",
-      },
-    },
-    {
-      delay: 600,
-      event: {
-        type: "builder.completed",
-        question_index: 3,
-        engine_name: "gen1-eval-d7g",
-        ok: true,
-        error: null,
-      },
-    },
-    {
-      delay: 600,
-      event: {
-        type: "builder.completed",
-        question_index: 4,
-        engine_name: "gen1-sample-e5h",
         ok: true,
         error: null,
       },
@@ -216,7 +158,7 @@ export function startMockStream(onEvent: (e: CubistEvent) => void): () => void {
         fen: "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1",
         san: "d4",
         white: "gen1-prompt-b1d",
-        black: "gen1-eval-d7g",
+        black: "baseline-v0",
         ply: 1,
       },
     },
@@ -228,7 +170,7 @@ export function startMockStream(onEvent: (e: CubistEvent) => void): () => void {
         fen: "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq d6 0 2",
         san: "d5",
         white: "gen1-prompt-b1d",
-        black: "gen1-eval-d7g",
+        black: "baseline-v0",
         ply: 2,
       },
     },
@@ -242,7 +184,7 @@ export function startMockStream(onEvent: (e: CubistEvent) => void): () => void {
         termination: "stalemate",
         pgn: "1. d4 d5",
         white: "gen1-prompt-b1d",
-        black: "gen1-eval-d7g",
+        black: "baseline-v0",
       },
     },
 
@@ -256,19 +198,7 @@ export function startMockStream(onEvent: (e: CubistEvent) => void): () => void {
         termination: "checkmate",
         pgn: "1. e4 c5",
         white: "gen1-book-a3f",
-        black: "gen1-sample-e5h",
-      },
-    },
-    {
-      delay: 800,
-      event: {
-        type: "game.finished",
-        game_id: 4,
-        result: "1-0",
-        termination: "resignation",
-        pgn: "1. d4 Nf6",
-        white: "gen1-eval-d7g",
-        black: "baseline-v0",
+        black: "gen1-prompt-b1d",
       },
     },
 
@@ -311,33 +241,6 @@ export function startMockStream(onEvent: (e: CubistEvent) => void): () => void {
         index: 1,
         category: "evaluation",
         text: "Would piece-square tables improve positional scoring?",
-      },
-    },
-    {
-      delay: 700,
-      event: {
-        type: "strategist.question",
-        index: 2,
-        category: "prompt",
-        text: "Would a chain-of-thought reasoning prompt reduce blunders?",
-      },
-    },
-    {
-      delay: 700,
-      event: {
-        type: "strategist.question",
-        index: 3,
-        category: "book",
-        text: "Would a 10-move opening book cover more common lines?",
-      },
-    },
-    {
-      delay: 700,
-      event: {
-        type: "strategist.question",
-        index: 4,
-        category: "sampling",
-        text: "Would beam search over top-5 moves beat greedy selection?",
       },
     },
 

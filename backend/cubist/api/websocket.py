@@ -21,7 +21,7 @@ class GenerationStarted(BaseModel):
 
 class StrategistQuestion(BaseModel):
     type: Literal["strategist.question"] = "strategist.question"
-    index: int  # 0..4
+    index: int  # 0..1
     category: str  # "prompt" | "search" | "book" | "evaluation" | "sampling"
     text: str
 

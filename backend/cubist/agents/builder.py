@@ -97,7 +97,7 @@ async def build_engine(
         model=settings.builder_model,
         system="You write Python chess engines.",
         user=user,
-        max_tokens=4096,
+        max_tokens=8192,
         tools=[TOOL],
     )
 

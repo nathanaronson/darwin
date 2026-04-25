@@ -2,9 +2,9 @@
 
 Calls the strategist model (default ``claude-opus-4-6``) once per
 generation with a ``submit_questions`` tool. The model must return
-exactly one improvement question per category in
-``CATEGORIES``; we deduplicate on category and raise if fewer than 5
-distinct categories come back.
+exactly 2 distinct improvement questions, each from a different
+category in ``CATEGORIES``; we deduplicate on category and raise if
+fewer than 2 distinct categories come back.
 
 The free-form ``text`` of each question is shown verbatim in the
 dashboard — keep it readable.
@@ -26,7 +26,7 @@ PROMPT = (Path(__file__).parent / "prompts" / "strategist_v1.md").read_text()
 TOOL = {
     "name": "submit_questions",
     "description": (
-        "Submit exactly 5 improvement questions, one per category from "
+        "Submit exactly 2 improvement questions, each from a DIFFERENT category in "
         "[prompt, search, book, evaluation, sampling]. Each question's text "
         "is shown verbatim to a human, so write plain English."
     ),
@@ -35,8 +35,8 @@ TOOL = {
         "properties": {
             "questions": {
                 "type": "array",
-                "minItems": 5,
-                "maxItems": 5,
+                "minItems": 2,
+                "maxItems": 2,
                 "items": {
                     "type": "object",
                     "properties": {
@@ -63,7 +63,7 @@ async def propose_questions(
     champion_code: str,
     history: list[dict],
 ) -> list[Question]:
-    """Return 5 distinct improvement questions across the locked categories.
+    """Return 2 distinct improvement questions across the locked categories.
 
     Args:
         champion_code: source of the current champion module.
@@ -73,10 +73,10 @@ async def propose_questions(
             rationale.
 
     Returns:
-        Length-5 list of ``Question`` records, deduplicated by category.
+        Length-2 list of ``Question`` records, deduplicated by category.
 
     Raises:
-        ValueError: if the model returns fewer than 5 distinct categories.
+        ValueError: if the model returns fewer than 2 distinct categories.
         RuntimeError: if the model never produced a ``tool_use`` block.
     """
     user = PROMPT.format(
@@ -103,9 +103,9 @@ async def propose_questions(
                     continue
                 seen.add(cat)
                 out.append(Question(index=i, category=cat, text=txt))
-            if len(out) != 5:
+            if len(out) != 2:
                 raise ValueError(
-                    f"strategist returned {len(out)} distinct categories, expected 5; "
+                    f"strategist returned {len(out)} distinct categories, expected 2; "
                     f"got categories={[q['category'] for q in qs]!r}"
                 )
             return out

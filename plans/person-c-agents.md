@@ -77,7 +77,7 @@ Commit and push: "feat(agents): stub implementations for parallel dev." Tell Per
 You are the strategist for a self-improving chess engine. Below is the current
 champion's source code and a history of prior generations.
 
-Your job: propose exactly 5 distinct improvement questions. Each question
+Your job: propose exactly 2 distinct improvement questions. Each question
 must target a DIFFERENT category from this fixed list:
   - prompt:     change how the LLM is asked for moves
   - search:     wrap the LLM in a lookahead / minimax / MCTS layer
@@ -110,13 +110,13 @@ CATEGORIES = ["prompt", "search", "book", "evaluation", "sampling"]
 
 TOOL = {
     "name": "submit_questions",
-    "description": "Submit exactly 5 improvement questions, one per category.",
+    "description": "Submit exactly 2 improvement questions, each from a different category.",
     "input_schema": {
         "type": "object",
         "properties": {
             "questions": {
                 "type": "array",
-                "minItems": 5, "maxItems": 5,
+                "minItems": 2, "maxItems": 2,
                 "items": {
                     "type": "object",
                     "properties": {
@@ -158,8 +158,8 @@ async def propose_questions(champion_code: str, history: list[dict]) -> list[Que
                     continue
                 seen.add(q["category"])
                 out.append(Question(index=i, category=q["category"], text=q["text"]))
-            if len(out) != 5:
-                raise ValueError(f"expected 5 distinct categories, got {len(out)}")
+            if len(out) != 2:
+                raise ValueError(f"expected 2 distinct categories, got {len(out)}")
             return out
     raise RuntimeError("strategist did not return tool_use")
 ```
@@ -263,7 +263,7 @@ async def validate_engine(module_path: Path) -> tuple[bool, str | None]:
 
 ### Step 5 — Tests (1 hour)
 
-`tests/test_strategist.py` — mock `cubist.llm.complete` with `monkeypatch`, return a fake tool-use response, assert 5 distinct categories.
+`tests/test_strategist.py` — mock `cubist.llm.complete` with `monkeypatch`, return a fake tool-use response, assert 2 distinct categories.
 
 `tests/test_builder.py` — same pattern; verify file is written, FORBIDDEN regex rejects bad code, validator rejects a syntax-error module.
 
@@ -278,7 +278,7 @@ gh pr create --title "Agents" --body "Closes plan C."
 ## Definition of done
 
 - [ ] Stubs (Step 2) pushed to a branch within 30 min so Person E unblocks.
-- [ ] Real strategist returns 5 distinct categories from a real Opus call.
+- [ ] Real strategist returns 2 distinct categories from a real Opus call.
 - [ ] Real builder produces an engine that validates and beats `RandomEngine` >50% in a 4-game match.
 - [ ] PR open by **hour 8**, merged by **hour 10**.
 

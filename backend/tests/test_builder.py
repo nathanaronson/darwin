@@ -7,7 +7,6 @@ and as a negative test (subprocess-laden code is rejected).
 
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
