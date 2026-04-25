@@ -9,6 +9,7 @@
  */
 
 import { useMemo } from "react";
+import type { ReactNode } from "react";
 import { Chessboard } from "react-chessboard";
 import type { DarwinEvent, GameMove, GameFinished } from "../api/events";
 
@@ -16,7 +17,13 @@ interface LiveBoardsProps {
   events: DarwinEvent[];
 }
 
-const MAX_BOARDS = 16;
+// Show only 2 boards live. The full tournament can have 90-800 games
+// concurrent; rendering all of them is unreadable and CPU-heavy. Two
+// boards is enough for the demo to feel "alive" (latest moves come in,
+// games rotate as they finish), and the bracket panel separately shows
+// every game's result. Sorted by most-recent activity (see below) so
+// the boards always show whatever's actively making moves.
+const MAX_BOARDS = 2;
 
 interface GameState {
   game_id: number;
@@ -76,7 +83,7 @@ function verboseMove(san: string, color: "white" | "black"): string {
 }
 
 export default function LiveBoards({ events }: LiveBoardsProps) {
-  const games = useMemo<GameState[]>(() => {
+  const { games, runningCount, doneCount } = useMemo(() => {
     let lastBoundary = -1;
     for (let i = 0; i < events.length; i++) {
       const t = events[i].type;
@@ -131,21 +138,84 @@ export default function LiveBoards({ events }: LiveBoardsProps) {
       }
     }
 
-    return Array.from(map.values())
-      .sort((a, b) => a.game_id - b.game_id)
+    // Tally totals BEFORE the slice. The header shows aggregate
+    // counts ("47 running · 43 done · 90 total") so the user can see
+    // tournament progress even though the grid only renders 2 boards.
+    let running = 0;
+    let done = 0;
+    for (const g of map.values()) {
+      if (g.finished) done += 1;
+      else running += 1;
+    }
+
+    // Sort by most-recent-activity descending so the visible boards
+    // are always whatever's actively making moves. With MAX_BOARDS=2,
+    // this means: as games finish or stall, fresher games slide in.
+    // Within the same recency bucket, prefer in-progress games over
+    // finished ones so a board that just hit checkmate doesn't hog
+    // the slot while other games are still being played.
+    const visibleGames = Array.from(map.values())
+      .sort((a, b) => {
+        if (a.finished !== b.finished) return a.finished ? 1 : -1;
+        return b.last_event_idx - a.last_event_idx;
+      })
       .slice(0, MAX_BOARDS);
+
+    return {
+      games: visibleGames,
+      runningCount: running,
+      doneCount: done,
+    };
   }, [events]);
+
+  // Header meta — counts accurate to the full game set, color-coded so
+  // status reads at a glance: amber/pulsing for running, green for done,
+  // dim for the "/total" denominator. Done count includes synthesized
+  // forfeits (termination=error), so it grows steadily even if some
+  // candidates time out.
+  const totalGames = runningCount + doneCount;
+  let meta: ReactNode;
+  if (totalGames === 0) {
+    meta = (
+      <span style={{ color: "var(--ink-faint)" }}>no games yet</span>
+    );
+  } else {
+    meta = (
+      <span className="inline-flex items-center gap-2 normal-case tracking-normal">
+        {runningCount > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            {/* Pulsing dot — visual heartbeat that the tournament is alive */}
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ backgroundColor: "#fbbf24" }}
+            />
+            <span style={{ color: "#fbbf24" }} className="font-semibold">
+              {runningCount}
+            </span>
+            <span style={{ color: "var(--ink-faint)" }}>running</span>
+          </span>
+        )}
+        {runningCount > 0 && doneCount > 0 && (
+          <span style={{ color: "var(--ink-faint)" }}>·</span>
+        )}
+        {doneCount > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <span style={{ color: "#10b981" }} className="font-semibold">
+              {doneCount}
+            </span>
+            <span style={{ color: "var(--ink-faint)" }}>done</span>
+          </span>
+        )}
+        <span style={{ color: "var(--ink-faint)" }}>
+          / {totalGames}
+        </span>
+      </span>
+    );
+  }
 
   return (
     <div className="panel p-6">
-      <PanelHead
-        title="Live boards"
-        meta={
-          games.length === 0
-            ? "no games yet"
-            : `${games.length} game${games.length === 1 ? "" : "s"}`
-        }
-      />
+      <PanelHead title="Live boards" meta={meta} />
 
       {games.length === 0 ? (
         <EmptyPlot
@@ -179,7 +249,9 @@ export function PanelHead({
   /** Optional small-caps label above the title. Omit for a tighter head. */
   eyebrow?: string;
   title: string;
-  meta?: string;
+  /** Right-aligned meta. ReactNode so panels can render colored counters,
+   *  pulsing dots, etc. — strings still work as before. */
+  meta?: ReactNode;
 }) {
   return (
     <div>
