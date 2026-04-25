@@ -4,8 +4,6 @@
 
 A self-improving chess engine that evolves its own scaffolding via agentic tournament selection.
 
-> Built at the Point72 Hackathon as a 24-hour, five-engineer build.
-
 ---
 
 ## Overview
