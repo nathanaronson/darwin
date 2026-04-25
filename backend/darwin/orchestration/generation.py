@@ -107,13 +107,14 @@ async def run_generation(
     # actually dispatches the warm pool is ready and tournament wall-
     # clock skips cold-start entirely. No-op on local backend.
     #
-    # Pool size: 120. With games_per_pairing=3 and a 10-engine cohort
-    # (2 incumbents + 8 candidates from the 8 strategist categories),
-    # the round-robin schedules 10×9×3 = 270 games. 120 warm containers
-    # cover the leading edge; the remaining ~150 ride memory-snapshot
+    # Pool size: 40. With games_per_pairing=3 and a 6-engine cohort,
+    # the round-robin schedules 6×5×3 = 90 games. 40 warm containers
+    # cover the leading edge; the remaining ~50 ride memory-snapshot
     # cold-starts (~1-2s each, parallel) and Modal's queue picks them
-    # up as warm containers free up.
-    await warm_modal_pool(120)
+    # up as warm containers free up. Going beyond 40 hits diminishing
+    # returns (the queue model handles overflow well) and adds idle
+    # cost during the ~30s strategist/builder/smoke window.
+    await warm_modal_pool(40)
 
     await bus.emit(
         {
@@ -316,8 +317,8 @@ async def run_generation(
         )
 
     # The tournament cohort is every incumbent + every accepted candidate.
-    # With 2 incumbents and up to 8 candidates that's 10 engines and
-    # 10*9*games_per_pairing = 270 games concurrently — the
+    # With 2 incumbents and up to 4 candidates that's 6 engines and
+    # 6*5*games_per_pairing = 60 games concurrently — the
     # max_parallel_games semaphore caps actual concurrency to keep
     # Gemini quotas in line.
     cohort = [*incumbents, *candidates]

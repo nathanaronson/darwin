@@ -1,8 +1,8 @@
 """Tests for darwin.agents.strategist on the experimental pure-code branch.
 
 The strategist is deterministic now — no LLM calls. Tests cover:
-  - One question per category in CATEGORIES_USED
-  - All categories distinct, all from the allowed set
+  - 4 questions returned, one per category in CATEGORIES_USED
+  - All four categories distinct, all from the allowed set
   - Different generations get different question text (rotation works)
   - Optional kwargs (champion_code, runner_up_code, champion_question)
     are accepted without error and don't affect the output
@@ -21,13 +21,12 @@ from darwin.agents.strategist import (
 
 
 @pytest.mark.asyncio
-async def test_propose_questions_returns_one_per_category():
+async def test_propose_questions_returns_4_distinct_categories():
     qs = await propose_questions(champion_code="x = 1", history=[])
 
-    expected = len(CATEGORIES_USED)
-    assert len(qs) == expected
+    assert len(qs) == 4
     categories = [q.category for q in qs]
-    assert len(set(categories)) == expected
+    assert len(set(categories)) == 4
     assert set(categories) == set(CATEGORIES_USED)
     assert all(isinstance(q, Question) for q in qs)
     assert all(len(q.text) >= 20 for q in qs)

@@ -64,11 +64,10 @@ events_queue = modal.Queue.from_name("darwin-events", create_if_missing=True)
     # kills synchronous-deep-search blowups in half the time the
     # previous 60s ceiling allowed.
     timeout=30,
-    # Cap concurrency to 300 — handles 8 candidates + 2 incumbents =
-    # 10 engines × 9 ordered pairs × games_per_pairing=3 = 270 games per
-    # round-robin, with ~1.1x headroom over the cohort. Bump (and redeploy)
-    # if you add more strategist categories.
-    max_containers=300,
+    # Cap concurrency to 40 — handles 4 candidates + 1 incumbent =
+    # 5 engines × 4 ordered pairs × games_per_pairing=2 = 40-game
+    # worst-case round-robins without queuing.
+    max_containers=100,
     # No idle containers by default — zero baseline cost. Toggle warm
     # pool on demand via:
     #   modal app keep-warm darwin-tournament play_game_remote N
