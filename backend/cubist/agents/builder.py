@@ -53,7 +53,12 @@ FORBIDDEN = re.compile(
     r"\bsubprocess\b|\bos\.system\b|\bsocket\b|"
     r"\beval\s*\(|\bexec\s*\(|"
     r"\bimportlib\b|\burllib\b|\brequests\b|\bhttpx\b|"
-    r"\basyncio\.subprocess\b|\bpty\b|\bfcntl\b"
+    r"\basyncio\.subprocess\b|\bpty\b|\bfcntl\b|"
+    # Aliasing cubist.config the module to `settings` is a recurring
+    # builder hallucination — every access then raises AttributeError
+    # and the engine silently plays first-legal-move. Reject early.
+    r"from\s+cubist\s+import\s+config\s+as\s+settings|"
+    r"import\s+cubist\.config\s+as\s+settings"
     r")"
 )
 

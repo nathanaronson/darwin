@@ -15,10 +15,40 @@ from typing import Awaitable, Callable
 import chess
 import chess.pgn
 
+from cubist import llm
 from cubist.config import settings
 from cubist.engines.base import Engine
 
 EventCb = Callable[[dict], Awaitable[None]] | None
+
+
+def _run_select_move(
+    engine: Engine,
+    board: chess.Board,
+    time_per_move_ms: int,
+) -> chess.Move:
+    """Run ``engine.select_move`` on a private event loop in a worker thread.
+
+    Engines may execute synchronous CPU-heavy work (alpha-beta search,
+    evaluation) inside their async ``select_move``. Running that on the
+    main event loop starves the WebSocket bus and the FastAPI request
+    handlers — the dashboard goes dark. By giving each move its own
+    short-lived loop in a thread, the main loop stays responsive
+    regardless of how the engine is implemented.
+
+    LLM-using engines work too: ``cubist.llm`` keeps its clients and
+    semaphore per-loop and we call ``cleanup_loop`` here to drop the
+    cached entries when the loop is closed.
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(
+            engine.select_move(board, time_per_move_ms)
+        )
+    finally:
+        loop_id = id(loop)
+        loop.close()
+        llm.cleanup_loop(loop_id)
 
 
 @dataclass
@@ -109,7 +139,9 @@ async def play_game(
 
         try:
             move = await asyncio.wait_for(
-                engine.select_move(board.copy(), time_per_move_ms),
+                asyncio.to_thread(
+                    _run_select_move, engine, board.copy(), time_per_move_ms
+                ),
                 timeout=timeout_s,
             )
         except asyncio.TimeoutError:

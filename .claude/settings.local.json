@@ -2,7 +2,30 @@
   "permissions": {
     "allow": [
       "Bash(pdflatex -interaction=nonstopmode proposal.tex)",
-      "Bash(rm -f proposal.aux proposal.log proposal.out proposal.toc)"
+      "Bash(rm -f proposal.aux proposal.log proposal.out proposal.toc)",
+      "Bash(curl -sI http://localhost:5173/)",
+      "Bash(curl -s http://localhost:8000/api/health)",
+      "Bash(xargs -r kill)",
+      "Bash(rm -f /Users/nathanaronson/Repositories/github.com/personal/cubist-chess-engine/backend/cubist.db*)",
+      "Bash(make dev *)",
+      "Bash(curl -sf http://localhost:8000/api/health)",
+      "Bash(curl -s http://localhost:8000/api/generations)",
+      "Bash(curl -s http://localhost:8000/api/engines)",
+      "Bash(curl -sX POST http://localhost:8000/api/generations/run)",
+      "Bash(uv sync *)",
+      "Bash(make install *)",
+      "Bash(make seed *)",
+      "Bash(make check *)",
+      "Bash(npx tsc *)",
+      "Bash(jq)",
+      "Bash(curl -s http://localhost:8000/api/games)",
+      "Bash(git *)",
+      "Bash(gh pr create --title 'Gemini provider + infra fixes + 5→2 cohort + 4 follow-up plans' --body ' *)",
+      "Bash(gh pr *)",
+      "Bash(rm -rf /Users/nathanaronson/Repositories/github.com/personal/cubist-chess-engine/backend/cubist/engines/generated/*.py)",
+      "Bash(rm -f /Users/nathanaronson/Repositories/github.com/personal/cubist-chess-engine/backend/cubist.db)",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); [print\\(g['number'], 'before=' + g['champion_before'], 'after=' + g['champion_after'], 'finished=' + str\\(g['finished_at']\\)\\) for g in data]\")",
+      "Bash(python3 -m json.tool)"
     ]
   }
 }

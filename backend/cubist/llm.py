@@ -32,36 +32,63 @@ from cubist.config import settings
 
 log = logging.getLogger("cubist.llm")
 
-_sem = asyncio.Semaphore(30)
+# Per-loop caches. The orchestrator's agents (strategist/builder) run on
+# the main event loop, while engines run on private per-call loops in
+# worker threads (see ``cubist.tournament.referee._run_select_move``).
+# ``asyncio.Semaphore`` and the SDK clients hold loop-bound locks
+# internally, so we keep one of each per running loop and let the
+# referee call ``cleanup_loop()`` when its private loop is torn down.
+_anthropic_clients: dict[int, Any] = {}
+_gemini_clients: dict[int, Any] = {}
+_sems: dict[int, asyncio.Semaphore] = {}
 
-# Lazy provider clients — only the selected provider is instantiated,
-# so users without one of the keys set don't see a startup error.
-_anthropic_client = None
-_gemini_client = None
+
+def _loop_key() -> int:
+    return id(asyncio.get_running_loop())
+
+
+def cleanup_loop(loop_id: int) -> None:
+    """Drop cached clients/semaphore for a loop that has been closed."""
+    _anthropic_clients.pop(loop_id, None)
+    _gemini_clients.pop(loop_id, None)
+    _sems.pop(loop_id, None)
 
 
 def _get_anthropic():
-    """Lazy-init the Anthropic async client."""
-    global _anthropic_client
-    if _anthropic_client is None:
+    """Per-loop lazy init of the Anthropic async client."""
+    key = _loop_key()
+    client = _anthropic_clients.get(key)
+    if client is None:
         from anthropic import AsyncAnthropic
 
-        _anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-    return _anthropic_client
+        client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+        _anthropic_clients[key] = client
+    return client
 
 
 def _get_gemini():
-    """Lazy-init the Google GenAI client.
+    """Per-loop lazy init of the Google GenAI client.
 
     The SDK exposes both sync and async methods on one client; we use the
     async surface via ``client.aio.models.generate_content``.
     """
-    global _gemini_client
-    if _gemini_client is None:
+    key = _loop_key()
+    client = _gemini_clients.get(key)
+    if client is None:
         from google import genai
 
-        _gemini_client = genai.Client(api_key=settings.google_api_key)
-    return _gemini_client
+        client = genai.Client(api_key=settings.google_api_key)
+        _gemini_clients[key] = client
+    return client
+
+
+def _get_sem() -> asyncio.Semaphore:
+    key = _loop_key()
+    sem = _sems.get(key)
+    if sem is None:
+        sem = asyncio.Semaphore(30)
+        _sems[key] = sem
+    return sem
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -204,7 +231,7 @@ async def _complete_claude(
 
     client = _get_anthropic()
     backoff = 1.0
-    async with _sem:
+    async with _get_sem():
         for attempt in range(5):
             try:
                 msg = await client.messages.create(
@@ -254,7 +281,7 @@ async def _complete_gemini(
         )
 
     backoff = 1.0
-    async with _sem:
+    async with _get_sem():
         for attempt in range(5):
             try:
                 response = await client.aio.models.generate_content(
